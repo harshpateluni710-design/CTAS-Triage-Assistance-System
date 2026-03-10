@@ -1,0 +1,8 @@
+flask
+flask-cors
+transformers
+torch
+seqeval
+PyJWT
+psycopg2-binary
+python-dotenv

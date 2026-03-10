@@ -1,0 +1,117 @@
+/* TriageResult – Corporate two-card layout */
+.triage-results {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Card A: Extraction ---- */
+.extraction-card {
+  border-left: 4px solid var(--brand-accent);
+}
+
+.card-title {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
+
+.profile-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.625rem;
+  background: var(--bg-gray);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.profile-icon {
+  font-size: 1.15rem;
+  color: var(--brand-accent);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.profile-icon.symptom-highlight {
+  color: #a855f7;
+}
+
+.profile-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+  margin-bottom: 0.15rem;
+}
+
+.profile-value {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.symptom-text {
+  color: #a855f7;
+  font-weight: 600;
+}
+
+/* ---- Card B: Recommendation ---- */
+.recommendation-card {
+  text-align: center;
+}
+
+.recommendation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 2rem;
+  border-radius: var(--radius-lg);
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.recommendation-badge svg {
+  font-size: 1.5rem;
+}
+
+.rec-immediate { background: var(--tier-2-red); color: #fff; }
+.rec-moderate  { background: var(--tier-1-amber); color: #1a1a1a; }
+.rec-selfcare  { background: var(--tier-0-green); color: #fff; }
+
+.confidence-score {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--brand-accent);
+  margin: 0.5rem 0 0.25rem;
+}
+
+.recommendation-description {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-light);
+  max-width: 600px;
+  margin: 0 auto;
+}

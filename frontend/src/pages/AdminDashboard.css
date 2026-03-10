@@ -1,0 +1,299 @@
+/* =================================
+   Admin Dashboard – Corporate
+   ================================= */
+
+.admin-dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  min-height: 100vh;
+  background: var(--bg-gray);
+}
+
+.admin-dashboard .dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.75rem;
+  gap: 2rem;
+}
+
+.admin-dashboard .dashboard-intro {
+  color: var(--text-light);
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.admin-dashboard .logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--tier-2-red);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.admin-dashboard .logout-btn:hover {
+  background: #b91c1c;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+
+.metric-card {
+  text-align: center;
+  padding: 1.5rem 1.25rem;
+  border-left: 4px solid;
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border-right: 1px solid var(--border-light);
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.metric-card h3 {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+
+.metric-target {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.status-good          { border-left-color: var(--tier-0-green); }
+.status-good .metric-value   { color: var(--tier-0-green); }
+.status-warning       { border-left-color: var(--tier-1-amber); }
+.status-warning .metric-value { color: var(--tier-1-amber); }
+.status-critical      { border-left-color: var(--tier-2-red); }
+.status-critical .metric-value { color: var(--tier-2-red); }
+.status-info          { border-left-color: var(--brand-accent); }
+.status-info .metric-value    { color: var(--brand-accent); }
+
+/* Charts */
+.card h3 {
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1rem;
+}
+
+/* Knowledge Base */
+.upload-section {
+  margin-bottom: 1.75rem;
+}
+
+.upload-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.file-input { display: none; }
+
+.file-label {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.625rem 1rem;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.file-label:hover {
+  border-color: var(--brand-accent);
+  background: var(--bg-gray);
+}
+
+/* Table */
+.table-responsive { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead { background: var(--bg-gray); }
+
+th, td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+th {
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+td {
+  color: var(--text-dark);
+  font-size: 0.9rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  background: var(--brand-accent);
+  color: white;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: var(--tier-0-bg);
+  color: var(--tier-0-green);
+}
+
+.status-badge.inactive {
+  background: var(--bg-gray);
+  color: var(--text-light);
+}
+
+.btn-icon {
+  padding: 0.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.btn-icon:hover { background: var(--bg-gray); }
+
+.btn-icon.btn-danger { color: var(--tier-2-red); }
+.btn-icon.btn-danger:hover { background: var(--tier-2-bg); }
+
+/* Bias Section */
+.alert-warning {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: var(--tier-1-bg);
+  border-left: 4px solid var(--tier-1-amber);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.75rem;
+}
+
+.alert-warning svg {
+  color: var(--tier-1-amber);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.alert-warning strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+}
+
+.alert-warning p {
+  color: var(--text-dark);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.bias-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.75rem;
+}
+
+.bias-card h4 {
+  margin-bottom: 0.75rem;
+  color: var(--text-dark);
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.bias-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.bias-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bias-stat .stat-label {
+  color: var(--text-light);
+  font-size: 0.8rem;
+}
+
+.bias-stat .stat-value {
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 1rem;
+}
+
+.bias-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--tier-2-bg);
+  color: var(--tier-2-red);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .metrics-grid { grid-template-columns: 1fr; }
+  .upload-form { flex-direction: column; align-items: stretch; }
+  .file-label { min-width: auto; }
+  table { font-size: 0.8rem; }
+  th, td { padding: 0.6rem 0.4rem; }
+  .bias-metrics-grid { grid-template-columns: 1fr; }
+}

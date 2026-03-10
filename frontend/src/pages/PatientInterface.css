@@ -1,0 +1,241 @@
+/* ===========================
+   Patient Interface – Corporate
+   =========================== */
+
+.patient-interface {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  min-height: 100vh;
+  background: var(--bg-gray);
+}
+
+@media (min-width: 768px) {
+  .patient-interface {
+    padding: 2.5rem 1rem;
+  }
+}
+
+.patient-interface .back-link {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--brand-accent);
+  text-decoration: none;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--bg-white);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  font-size: 0.875rem;
+  transition: all var(--transition-base);
+}
+
+.patient-interface .back-link:hover {
+  border-color: var(--brand-accent);
+  transform: translateX(-3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.intro-section {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  background: var(--bg-white);
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+.intro-section h1 {
+  color: var(--text-dark);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.disclaimer-subtitle {
+  color: var(--text-muted);
+  margin-top: 0.375rem;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.symptom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--bg-white);
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+.form-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.symptom-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: all var(--transition-fast);
+}
+
+.symptom-input:focus {
+  border-color: var(--brand-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+.symptom-input:disabled {
+  background-color: var(--bg-gray);
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.9rem;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-base);
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: var(--brand-accent);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--brand-accent-hover);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-secondary {
+  background: var(--bg-gray);
+  color: var(--text-dark);
+  border: 1.5px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--brand-accent);
+  border: 1.5px solid var(--brand-accent);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--tier-2-bg);
+  color: var(--tier-2-red);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--tier-2-red);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.error-banner svg {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.result-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.slow-warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--tier-1-bg);
+  color: #92400e;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--tier-1-amber);
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.spinner-small {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.disclaimer-section {
+  margin-top: 2rem;
+  border-left: 3px solid var(--tier-1-amber);
+}
+
+.disclaimer-icon {
+  color: var(--tier-1-amber);
+  margin-right: 0.375rem;
+}
+
+.disclaimer-content {
+  margin-top: 0.75rem;
+}
+
+.disclaimer-content p {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.disclaimer-content ul {
+  list-style-position: inside;
+  padding-left: 0.75rem;
+}
+
+.disclaimer-content li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  font-size: 0.9rem;
+  color: var(--text-medium);
+}
+
+@media (max-width: 640px) {
+  .form-actions { flex-direction: column; }
+  .btn { width: 100%; justify-content: center; }
+}

@@ -1,0 +1,233 @@
+/* ===========================
+   Patient Home – Corporate
+   =========================== */
+
+.patient-home {
+  min-height: 100vh;
+  background: var(--bg-gray);
+}
+
+.patient-header {
+  background: var(--bg-dark);
+  color: white;
+  padding: 2rem 0;
+}
+
+.patient-header .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-content h1 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.header-content p {
+  opacity: 0.7;
+  font-size: 0.9rem;
+  color: white;
+}
+
+@media (min-width: 768px) {
+  .header-content h1 { font-size: 1.75rem; }
+  .header-content p  { font-size: 1rem; }
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.patient-content {
+  padding: 2.5rem 0;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+.action-card {
+  background: var(--bg-white);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--text-dark);
+  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid var(--border-light);
+}
+
+.action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--brand-accent);
+}
+
+.primary-action {
+  background: var(--tier-0-green);
+  color: white;
+  border-color: transparent;
+  padding: 2rem;
+}
+
+.primary-action:hover {
+  border-color: transparent;
+  filter: brightness(1.05);
+}
+
+@media (min-width: 768px) {
+  .primary-action {
+    grid-column: span 2;
+    padding: 2.5rem;
+  }
+}
+
+.action-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: inherit;
+}
+
+.primary-action .action-icon {
+  font-size: 2.5rem;
+}
+
+.action-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.action-card h3 {
+  font-size: 1.15rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.action-card p {
+  opacity: 0.85;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.action-button {
+  padding: 0.75rem 2rem;
+  background: white;
+  color: var(--tier-0-green);
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.action-button:hover {
+  transform: scale(1.03);
+  box-shadow: var(--shadow-md);
+}
+
+.info-section {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .info-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.info-card {
+  background: var(--bg-white);
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+.info-card h3 {
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.info-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.info-card li {
+  padding: 0.5rem 0;
+  padding-left: 1.25rem;
+  position: relative;
+  color: var(--text-medium);
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.info-card li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--brand-accent);
+  font-weight: bold;
+}
+
+.emergency-text {
+  color: var(--tier-2-red);
+  font-weight: 600;
+  line-height: 1.7;
+  background: var(--tier-2-bg);
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--tier-2-red);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .patient-header .container {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  .primary-action { grid-column: span 1; }
+}

@@ -1,0 +1,199 @@
+/* ===========================
+   Patient Profile – Corporate
+   =========================== */
+
+.patient-profile-page {
+  min-height: 100vh;
+  background: var(--bg-gray);
+}
+
+.profile-content {
+  padding: 2.5rem 0;
+}
+
+.profile-card {
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .profile-card { padding: 2.5rem; }
+}
+
+.profile-avatar {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.avatar-circle {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--bg-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+  font-size: 2.25rem;
+  color: white;
+}
+
+.edit-avatar-btn {
+  padding: 0.5rem 1.25rem;
+  background: var(--brand-accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.edit-avatar-btn:hover {
+  background: var(--brand-accent-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-form h2 {
+  color: var(--text-dark);
+  margin-bottom: 1.25rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.profile-form .form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .profile-form .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.profile-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-form .form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.375rem;
+  font-size: 0.85rem;
+}
+
+.profile-form .form-group input {
+  padding: 0.625rem 0.875rem;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.profile-form .form-group input:focus {
+  outline: none;
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+.profile-form .form-group input:disabled {
+  background: var(--bg-gray);
+  cursor: not-allowed;
+}
+
+.profile-form .form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.profile-form .btn {
+  padding: 0.625rem 1.75rem;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.profile-form .btn-primary {
+  background: var(--brand-accent);
+  color: white;
+}
+
+.profile-form .btn-primary:hover {
+  background: var(--brand-accent-hover);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.profile-form .btn-secondary {
+  background: var(--bg-gray);
+  color: var(--text-dark);
+  border: 1.5px solid var(--border-color);
+}
+
+.profile-form .btn-secondary:hover {
+  border-color: var(--text-medium);
+}
+
+.danger-zone {
+  margin-top: 2.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.danger-zone h2 {
+  color: var(--tier-2-red);
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.danger-zone p {
+  color: var(--text-light);
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.btn-danger {
+  background: var(--tier-2-red);
+  color: white;
+  padding: 0.625rem 1.75rem;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+@media (max-width: 768px) {
+  .profile-form .form-grid { grid-template-columns: 1fr; }
+  .profile-form .form-actions { flex-direction: column; }
+}

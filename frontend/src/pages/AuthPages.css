@@ -1,0 +1,310 @@
+/* ===========================
+   Auth Pages – Corporate Design
+   =========================== */
+
+.auth-page {
+  min-height: 100vh;
+  background: var(--bg-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  position: relative;
+}
+
+/* Role-specific subtle background accents */
+.patient-auth-page { background: linear-gradient(135deg, #f8fafc 0%, #ecfdf5 100%); }
+.doctor-auth-page  { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); }
+.admin-auth-page   { background: linear-gradient(135deg, #f8fafc 0%, #fffbeb 100%); }
+
+@media (min-width: 768px) {
+  .auth-page {
+    padding: 2rem;
+  }
+}
+
+.back-link,
+.back-to-home {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  color: var(--text-medium);
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--bg-white);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-base);
+  z-index: 10;
+  font-size: 0.875rem;
+}
+
+.back-link:hover,
+.back-to-home:hover {
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+  transform: translateX(-3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-container {
+  max-width: 1000px;
+  margin: 3rem auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+.auth-card {
+  background: var(--bg-white);
+  padding: 2.5rem;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-light);
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .auth-card {
+    padding: 3rem;
+    max-width: 650px;
+  }
+}
+
+/* Auth icon circles */
+.auth-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  color: white;
+  margin: 0 auto 1.5rem;
+}
+
+.patient-icon { background: var(--tier-0-green); }
+.doctor-icon  { background: var(--brand-accent); }
+.admin-icon   { background: var(--tier-1-amber); }
+
+.auth-card h1,
+.auth-header h1 {
+  text-align: center;
+  margin-bottom: 0.375rem;
+  color: var(--text-dark);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.auth-subtitle,
+.auth-header p {
+  text-align: center;
+  color: var(--text-light);
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+}
+
+/* Form styles */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  transition: all var(--transition-fast);
+  background: var(--bg-white);
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+}
+
+.form-group input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Auth buttons */
+.auth-button,
+.auth-btn {
+  padding: 0.875rem;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.patient-button,
+.patient-btn { background: var(--tier-0-green); }
+.doctor-button,
+.doctor-btn  { background: var(--brand-accent); }
+.admin-button,
+.admin-btn   { background: var(--tier-1-amber); color: var(--text-dark); }
+
+.auth-button:hover:not(:disabled),
+.auth-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.05);
+}
+
+.auth-button:disabled,
+.auth-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Footer */
+.auth-footer {
+  margin-top: 1.75rem;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.auth-footer p {
+  margin-bottom: 0.375rem;
+}
+
+.auth-footer a,
+.auth-link {
+  color: var(--brand-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer a:hover,
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.forgot-link {
+  display: inline-block;
+  margin-top: 0.375rem;
+  font-size: 0.85rem;
+}
+
+.admin-note {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--tier-1-amber);
+}
+
+/* Info sidebar */
+.auth-info {
+  color: var(--text-dark);
+  padding: 2.5rem;
+  background: var(--bg-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-info h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.auth-info ul {
+  list-style: none;
+  padding: 0;
+}
+
+.auth-info li {
+  padding: 0.75rem 0;
+  font-size: 0.95rem;
+  color: var(--text-medium);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.auth-info li:last-child {
+  border-bottom: none;
+}
+
+/* Error inside auth */
+.error-message {
+  background-color: var(--tier-2-bg);
+  color: var(--tier-2-red);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--tier-2-red);
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .auth-container {
+    grid-template-columns: 1fr;
+  }
+  .auth-info {
+    order: -1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    padding: 2rem 1.5rem;
+  }
+  .back-link,
+  .back-to-home {
+    top: 1rem;
+    left: 1rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Form grid for register pages */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
