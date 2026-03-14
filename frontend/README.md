@@ -69,7 +69,7 @@ frontend/
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Python backend (FastAPI/Flask) running on port 8000
+- Python backend (Flask) running on port 5000 (or deployed on Render)
 
 ### Steps
 
@@ -90,7 +90,14 @@ frontend/
    
    Edit `.env` to set your API URL:
    ```
-   VITE_API_URL=http://localhost:8000/api
+   VITE_HF_API_URL=http://localhost:5000/api/triage
+   VITE_API_URL=http://localhost:5000/api
+   ```
+
+   For production with Render backend:
+   ```
+   VITE_HF_API_URL=https://<your-backend>.onrender.com/api/triage
+   VITE_API_URL=https://<your-backend>.onrender.com/api
    ```
 
 4. **Start development server**

@@ -9,7 +9,7 @@ Custom Docker API servers on HF Spaces:
 
 import os
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 import requests as http_requests
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,7 +18,14 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+
+# Allow all origins by default; set CORS_ORIGINS for stricter production policy.
+cors_origins_raw = os.environ.get("CORS_ORIGINS", "*").strip()
+if cors_origins_raw == "*":
+    CORS(app)
+else:
+    origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+    CORS(app, resources={r"/*": {"origins": origins}})
 
 # ---------------------------------------------------------------------------
 # Database & Blueprints
@@ -39,8 +46,14 @@ init_db()
 # ---------------------------------------------------------------------------
 # Custom Docker API Endpoints (HF Spaces)
 # ---------------------------------------------------------------------------
-NER_API_URL = "https://harsh710000-ctas-ner-api.hf.space/predict"
-CLF_API_URL = "https://harsh710000-biobert-classifier-api.hf.space/predict"
+NER_API_URL = os.environ.get(
+    "NER_API_URL",
+    "https://harsh710000-ctas-ner-api.hf.space/predict",
+)
+CLF_API_URL = os.environ.get(
+    "CLF_API_URL",
+    "https://harsh710000-biobert-classifier-api.hf.space/predict",
+)
 
 CLASSIFICATION_LABELS = {"LABEL_0": "OTC Drug", "LABEL_1": "Doctor Consultation"}
 
@@ -345,4 +358,5 @@ def _mock_response(text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

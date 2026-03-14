@@ -7,7 +7,7 @@ import psycopg2
 import psycopg2.extras
 from contextlib import contextmanager
 
-SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL", "")
+SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL", "")
 
 
 @contextmanager

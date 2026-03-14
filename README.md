@@ -99,6 +99,45 @@ VITE_HF_API_URL=http://localhost:5000/api/triage
 VITE_API_URL=http://localhost:5000/api
 ```
 
+## Production Deployment (Render Backend + Vercel Frontend)
+
+### Architecture in Production
+
+- Vercel frontend calls `VITE_HF_API_URL` for triage (`/api/triage`) on your Flask backend.
+- The Flask backend then calls HF Spaces (`NER_API_URL` and `CLF_API_URL`).
+- Vercel frontend calls `VITE_API_URL` for auth, patient, doctor, and admin routes.
+
+### 1. Deploy Backend on Render
+
+This repo includes `render.yaml` configured for the backend service:
+
+- Root directory: `backend/`
+- Build command: `pip install -r requirements.txt`
+- Start command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120`
+
+Backend environment variables to set in Render:
+
+- `JWT_SECRET` (required)
+- `SUPABASE_DB_URL` (required, or use `DATABASE_URL`)
+- `NER_API_URL` (optional, defaults to current HF NER endpoint)
+- `CLF_API_URL` (optional, defaults to current HF classifier endpoint)
+- `CORS_ORIGINS` (optional, use `*` or your Vercel domain list)
+
+### 2. Connect Frontend on Vercel
+
+After Render gives you a live backend URL, for example `https://ctas-backend.onrender.com`, set:
+
+```env
+VITE_HF_API_URL=https://ctas-backend.onrender.com/api/triage
+VITE_API_URL=https://ctas-backend.onrender.com/api
+```
+
+Important:
+
+- `VITE_HF_API_URL` must include `/api/triage`.
+- `VITE_API_URL` must be the API base ending at `/api`.
+- Do not point frontend env vars to HF `/predict` URLs directly.
+
 ## Features
 
 ### Patient Interface
