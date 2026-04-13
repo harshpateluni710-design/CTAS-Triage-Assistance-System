@@ -223,6 +223,29 @@ export const getPatientCases = async () => {
   }
 }
 
+export const getDoctorStats = async () => {
+  try {
+    const response = await api.get('/doctor/stats')
+    return response.data
+  } catch (error) {
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+      const mockCases = getMockPatientCases()
+      const validatedCases = mockCases.filter(c => c.validated)
+      const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+      return {
+        totalAssessments: mockCases.length,
+        validatedAssessments: validatedCases.length,
+        pendingAssessments: mockCases.length - validatedCases.length,
+        agreementCount,
+        kappaPercent: validatedCases.length > 0
+          ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
+          : null,
+      }
+    }
+    throw error
+  }
+}
+
 export const submitValidation = async (caseId, isCorrect, doctorTier) => {
   try {
     const response = await api.post('/doctor/validate', {

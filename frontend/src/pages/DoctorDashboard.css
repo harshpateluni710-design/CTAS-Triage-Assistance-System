@@ -113,6 +113,16 @@
   gap: 1rem;
 }
 
+.cases-section {
+  margin-bottom: 1.5rem;
+}
+
+.cases-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+
 .case-card {
   border-left: 4px solid var(--brand-accent);
 }
@@ -196,6 +206,12 @@
   padding: 1rem;
   background: var(--bg-gray);
   border-radius: var(--radius-md);
+}
+
+.validation-note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-dark);
 }
 
 .tier-select {

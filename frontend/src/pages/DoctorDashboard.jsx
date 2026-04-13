@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCircle } from 'react-icons/fa'
-import { getPatientCases, submitValidation, getProtocols } from '../services/api'
+import { getPatientCases, submitValidation, getProtocols, getDoctorStats } from '../services/api'
 import './DoctorDashboard.css'
 
 const DoctorDashboard = () => {
@@ -11,6 +11,12 @@ const DoctorDashboard = () => {
   const [activeTab, setActiveTab] = useState('validation')
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [stats, setStats] = useState({
+    totalAssessments: 0,
+    validatedAssessments: 0,
+    agreementCount: 0,
+    kappaPercent: null,
+  })
 
   useEffect(() => {
     loadData()
@@ -24,12 +30,14 @@ const DoctorDashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [casesData, protocolsData] = await Promise.all([
+      const [casesData, protocolsData, statsData] = await Promise.all([
         getPatientCases(),
-        getProtocols()
+        getProtocols(),
+        getDoctorStats(),
       ])
       setCases(casesData)
       setProtocols(protocolsData)
+      setStats(statsData)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -46,6 +54,8 @@ const DoctorDashboard = () => {
           ? { ...c, validated: true, doctorAgreement: isCorrect, doctorTier }
           : c
       ))
+      const statsData = await getDoctorStats()
+      setStats(statsData)
     } catch (error) {
       console.error('Error submitting validation:', error)
     }
@@ -56,40 +66,8 @@ const DoctorDashboard = () => {
     p.description.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const validatedCases = cases.filter(c => c.validated)
-  const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
-  const kappaPercent = (() => {
-    if (validatedCases.length === 0) return null
-
-    // Binary classes: 1=Doctor Consultation, 0=OTC Drug
-    let aiDoctor = 0
-    let aiOtc = 0
-    let docDoctor = 0
-    let docOtc = 0
-
-    validatedCases.forEach((c) => {
-      const aiTier =
-        c.aiTier ??
-        (c.recommendation === 'Doctor Consultation' ? 1 :
-          c.recommendation === 'OTC Drug' ? 0 :
-          c.tier ?? 0)
-      const docTier = Number(c.doctorTier)
-
-      if (aiTier === 1) aiDoctor += 1
-      else aiOtc += 1
-
-      if (docTier === 1) docDoctor += 1
-      else docOtc += 1
-    })
-
-    const n = validatedCases.length
-    const po = agreementCount / n
-    const pe = ((aiDoctor / n) * (docDoctor / n)) + ((aiOtc / n) * (docOtc / n))
-    if (pe === 1) return 100
-
-    const kappa = (po - pe) / (1 - pe)
-    return Number((kappa * 100).toFixed(1))
-  })()
+  const pendingCases = cases.filter(c => !c.validated)
+  const verifiedCases = cases.filter(c => c.validated)
 
   if (loading) {
     return (
@@ -144,42 +122,68 @@ const DoctorDashboard = () => {
             
             <div className="stats-cards">
               <div className="stat-card">
-                <div className="stat-value">{cases.length}</div>
-                <div className="stat-label">Total Cases</div>
+                <div className="stat-value">{stats.totalAssessments}</div>
+                <div className="stat-label">Total Assessments</div>
               </div>
               <div className="stat-card">
                 <div className="stat-value">
-                  {validatedCases.length}
+                  {stats.validatedAssessments}
                 </div>
                 <div className="stat-label">Validated</div>
               </div>
               <div className="stat-card">
                 <div className="stat-value">
-                  {agreementCount}
+                  {stats.agreementCount}
                 </div>
                 <div className="stat-label">Agreement</div>
               </div>
               <div className="stat-card">
                 <div className="stat-value">
-                  {kappaPercent == null ? 'N/A' : `${kappaPercent}%`}
+                  {stats.kappaPercent == null ? 'N/A' : `${stats.kappaPercent}%`}
                 </div>
                 <div className="stat-label">Cohen's Kappa</div>
               </div>
             </div>
 
-            <div className="cases-list">
-              {cases.length === 0 ? (
-                <p className="empty-state">No cases available for validation.</p>
-              ) : (
-                cases.map((caseData) => (
-                  <CaseCard
-                    key={caseData.id}
-                    caseData={caseData}
-                    onValidate={handleValidation}
-                  />
-                ))
-              )}
-            </div>
+            {cases.length === 0 ? (
+              <p className="empty-state">No cases available for validation.</p>
+            ) : (
+              <>
+                <div className="cases-section">
+                  <h3 className="cases-section-title">Pending Validation ({pendingCases.length})</h3>
+                  <div className="cases-list">
+                    {pendingCases.length === 0 ? (
+                      <p className="empty-state">No pending assessments.</p>
+                    ) : (
+                      pendingCases.map((caseData) => (
+                        <CaseCard
+                          key={caseData.id}
+                          caseData={caseData}
+                          onValidate={handleValidation}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="cases-section">
+                  <h3 className="cases-section-title">Verified Assessments ({verifiedCases.length})</h3>
+                  <div className="cases-list">
+                    {verifiedCases.length === 0 ? (
+                      <p className="empty-state">No verified assessments yet.</p>
+                    ) : (
+                      verifiedCases.map((caseData) => (
+                        <CaseCard
+                          key={caseData.id}
+                          caseData={caseData}
+                          onValidate={handleValidation}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         )}
 
@@ -237,8 +241,7 @@ const CaseCard = ({ caseData, onValidate }) => {
     (caseData.recommendation === 'Doctor Consultation' ? 1 :
       caseData.recommendation === 'OTC Drug' ? 0 :
       caseData.tier ?? 0)
-
-  const [selectedTier, setSelectedTier] = useState(aiTier)
+  const disagreeTier = aiTier === 1 ? 0 : 1
 
   const normalizedConfidence =
     caseData.confidence != null && Number(caseData.confidence) <= 1
@@ -285,23 +288,14 @@ const CaseCard = ({ caseData, onValidate }) => {
 
         {!caseData.validated ? (
           <div className="validation-controls">
-            <label htmlFor={`tier-select-${caseData.id}`}>
-              <strong>Your Professional Judgment:</strong>
-            </label>
-            <select
-              id={`tier-select-${caseData.id}`}
-              value={selectedTier}
-              onChange={(e) => setSelectedTier(Number(e.target.value))}
-              className="tier-select"
-            >
-              <option value={1}>Doctor Consultation</option>
-              <option value={0}>OTC Drug</option>
-            </select>
+            <p className="validation-note">
+              <strong>Your Professional Judgment:</strong> confirm whether you agree with the AI recommendation.
+            </p>
 
             <div className="validation-buttons">
               <button
                 className="btn btn-success"
-                onClick={() => onValidate(caseData.id, true, selectedTier)}
+                onClick={() => onValidate(caseData.id, true, aiTier)}
                 aria-label="Agree with AI assessment"
               >
                 <FaCheckCircle aria-hidden="true" />
@@ -309,7 +303,7 @@ const CaseCard = ({ caseData, onValidate }) => {
               </button>
               <button
                 className="btn btn-danger"
-                onClick={() => onValidate(caseData.id, false, selectedTier)}
+                onClick={() => onValidate(caseData.id, false, disagreeTier)}
                 aria-label="Disagree with AI assessment"
               >
                 <FaTimesCircle aria-hidden="true" />

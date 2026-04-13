@@ -131,6 +131,74 @@ def get_cases():
     return jsonify(cases)
 
 
+@doctor_bp.route("/stats", methods=["GET"])
+@require_auth(allowed_roles=["doctor"])
+def get_stats():
+    """Return lifetime validation stats for the logged-in doctor."""
+    with get_db() as conn:
+        cur = get_cursor(conn)
+        cur.execute("SELECT COUNT(*) AS c FROM assessments")
+        total_assessments = cur.fetchone()["c"]
+
+        cur.execute(
+            """
+            SELECT v.is_correct, v.doctor_tier, a.recommendation, a.tier
+            FROM validations v
+            JOIN assessments a ON a.id = v.assessment_id
+            WHERE v.doctor_id = %s
+            """,
+            (g.user_id,),
+        )
+        rows = cur.fetchall()
+
+    validated_assessments = len(rows)
+    agreement_count = sum(1 for r in rows if r["is_correct"])
+    kappa_percent = None
+
+    if validated_assessments > 0:
+        ai_doctor = 0
+        ai_otc = 0
+        doc_doctor = 0
+        doc_otc = 0
+
+        for r in rows:
+            recommendation = (r["recommendation"] or "").strip()
+            if recommendation == "Doctor Consultation":
+                ai_tier = 1
+            elif recommendation == "OTC Drug":
+                ai_tier = 0
+            else:
+                ai_tier = int(r["tier"] or 0)
+
+            doctor_tier = int(r["doctor_tier"] or 0)
+
+            if ai_tier == 1:
+                ai_doctor += 1
+            else:
+                ai_otc += 1
+
+            if doctor_tier == 1:
+                doc_doctor += 1
+            else:
+                doc_otc += 1
+
+        n = validated_assessments
+        po = agreement_count / n
+        pe = ((ai_doctor / n) * (doc_doctor / n)) + ((ai_otc / n) * (doc_otc / n))
+        if pe == 1:
+            kappa_percent = 100.0
+        else:
+            kappa_percent = round(((po - pe) / (1 - pe)) * 100, 1)
+
+    return jsonify({
+        "totalAssessments": total_assessments,
+        "validatedAssessments": validated_assessments,
+        "pendingAssessments": max(total_assessments - validated_assessments, 0),
+        "agreementCount": agreement_count,
+        "kappaPercent": kappa_percent,
+    })
+
+
 # ---------- Submit Validation ----------
 
 @doctor_bp.route("/validate", methods=["POST"])
