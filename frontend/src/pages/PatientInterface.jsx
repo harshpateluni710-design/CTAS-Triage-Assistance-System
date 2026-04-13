@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { FaPaperPlane, FaExclamationTriangle, FaArrowLeft, FaRedoAlt, FaDownload } from 'react-icons/fa'
 import TriageResult from '../components/TriageResult'
-import { analyzeSymptoms, saveAssessment } from '../services/api'
+import { analyzeSymptoms, getPatientHistory, saveAssessment } from '../services/api'
 import './PatientInterface.css'
 
 const PatientInterface = () => {
+  const { id } = useParams()
+  const assessmentId = id ? Number(id) : null
   const [symptoms, setSymptoms] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState(null)
   const [slowWarning, setSlowWarning] = useState(false)
   const slowTimerRef = useRef(null)
@@ -19,6 +22,48 @@ const PatientInterface = () => {
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!assessmentId) return
+
+    const fetchAssessmentDetails = async () => {
+      setLoadingDetail(true)
+      setError(null)
+
+      try {
+        const history = await getPatientHistory()
+        const assessment = history.find((item) => item.id === assessmentId)
+
+        if (!assessment) {
+          setError('Assessment not found')
+          setResult(null)
+          return
+        }
+
+        const normalizedConfidence =
+          assessment.confidence != null && assessment.confidence > 1
+            ? assessment.confidence / 100
+            : assessment.confidence
+
+        setResult({
+          original_input: assessment.symptoms || '',
+          extracted_data: assessment.extractedData || {},
+          formatted_clinical_text: assessment.formattedText || '',
+          final_recommendation:
+            assessment.recommendation || (assessment.tier === 1 ? 'Doctor Consultation' : 'OTC Drug'),
+          confidence: normalizedConfidence,
+        })
+      } catch (err) {
+        console.error('Failed to load assessment details:', err)
+        setError('Unable to load assessment details. Please try again.')
+        setResult(null)
+      } finally {
+        setLoadingDetail(false)
+      }
+    }
+
+    fetchAssessmentDetails()
+  }, [assessmentId])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -125,7 +170,7 @@ const PatientInterface = () => {
         </section>
 
         {/* --- View 1: Input Interface --- */}
-        {!result && (
+        {!assessmentId && !result && (
           <div className="card">
             <form onSubmit={handleSubmit} className="symptom-form">
               <label htmlFor="symptoms" className="form-label">
@@ -179,20 +224,28 @@ const PatientInterface = () => {
           </div>
         )}
 
+        {assessmentId && loadingDetail && (
+          <div className="card">
+            <p>Loading assessment details...</p>
+          </div>
+        )}
+
         {/* --- View 2: Results Dashboard --- */}
         {result && (
           <>
             <TriageResult result={result} />
-            <div className="result-actions">
-              <button className="btn btn-secondary" onClick={handleReset}>
-                <FaRedoAlt aria-hidden="true" />
-                Start New Assessment
-              </button>
-              <button className="btn btn-outline" onClick={handleExport}>
-                <FaDownload aria-hidden="true" />
-                Export Report
-              </button>
-            </div>
+            {!assessmentId && (
+              <div className="result-actions">
+                <button className="btn btn-secondary" onClick={handleReset}>
+                  <FaRedoAlt aria-hidden="true" />
+                  Start New Assessment
+                </button>
+                <button className="btn btn-outline" onClick={handleExport}>
+                  <FaDownload aria-hidden="true" />
+                  Export Report
+                </button>
+              </div>
+            )}
           </>
         )}
 

@@ -36,6 +36,7 @@ function App() {
             {/* Patient Routes */}
             <Route path="/patient" element={<PatientHome />} />
             <Route path="/patient/assessment" element={<PatientInterface />} />
+            <Route path="/patient/assessment/:id" element={<PatientInterface />} />
             <Route path="/patient/history" element={<PatientHistory />} />
             <Route path="/patient/analytics" element={<PatientAnalytics />} />
             <Route path="/patient/profile" element={<PatientProfile />} />
