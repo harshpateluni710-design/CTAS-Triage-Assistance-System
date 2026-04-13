@@ -233,9 +233,8 @@ def run_classification(clinical_text: str) -> dict:
         or _normalize_confidence(raw.get("probability"))
     )
 
-    # If upstream returns a flat legacy constant (e.g. 0.85) or no confidence,
-    # compute a dynamic estimate so UI does not show the same value every time.
-    if confidence is None or abs(confidence - 0.85) < 0.0005:
+    # Only derive fallback confidence when the upstream API omits confidence.
+    if confidence is None:
         confidence = _dynamic_confidence(clinical_text, prediction)
 
     return {"label": prediction, "confidence": confidence}
@@ -284,7 +283,8 @@ def triage():
         # Apply clinical safety rules (escalation / de-escalation)
         safe = apply_safety_rules(symptoms_text, raw_prediction, raw_confidence)
         recommendation = safe["prediction"]
-        confidence = safe["confidence"]
+        model_confidence = raw_confidence
+        final_confidence = safe["confidence"]
 
         # Build extracted_entities array for the frontend (display only)
         entities_array = _build_entities_array(extracted)
@@ -292,7 +292,11 @@ def triage():
         return jsonify({
             "extracted_entities": entities_array,
             "triage_label": recommendation,
-            "confidence": confidence,
+            # `confidence` is the BioBERT classifier probability (softmax top score).
+            # Frontend display + DB persistence should use this model confidence.
+            "confidence": model_confidence,
+            "model_confidence": model_confidence,
+            "final_confidence": final_confidence,
             "status": "success",
             "original_input": symptoms_text,
             "extracted_data": extracted,
