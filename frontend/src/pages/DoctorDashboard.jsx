@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCircle } from 'react-icons/fa'
-import { getPatientCases, getValidatedCases, submitValidation, getProtocols, getDoctorStats } from '../services/api'
+import { getDoctorAssessments, submitValidation, getProtocols } from '../services/api'
 import './DoctorDashboard.css'
 
 const computeStatsFromCases = (pendingCases, validatedCases) => {
@@ -81,17 +81,15 @@ const DoctorDashboard = () => {
     try {
       setLoading(true)
       setLoadError('')
-      const [pendingResult, validatedResult, protocolsResult, statsResult] = await Promise.allSettled([
-        getPatientCases(),
-        getValidatedCases(),
+      const [assessmentsResult, protocolsResult] = await Promise.allSettled([
+        getDoctorAssessments(),
         getProtocols(),
-        getDoctorStats(),
       ])
 
       const isAuthFailure = (result) =>
         result.status === 'rejected' && [401, 403].includes(result.reason?.response?.status)
 
-      if (isAuthFailure(pendingResult) || isAuthFailure(validatedResult) || isAuthFailure(statsResult)) {
+      if (isAuthFailure(assessmentsResult)) {
         setLoadError('Your doctor session is invalid or expired. Please sign in again.')
         setPendingCases([])
         setValidatedCases([])
@@ -106,43 +104,36 @@ const DoctorDashboard = () => {
         return
       }
 
-      const loadedPending = pendingResult.status === 'fulfilled' ? pendingResult.value : []
-      const loadedValidated = validatedResult.status === 'fulfilled' ? validatedResult.value : []
+      const loadedAssessments = assessmentsResult.status === 'fulfilled'
+        ? assessmentsResult.value
+        : { items: [], counts: null }
+      const loadedPending = loadedAssessments.items.filter(c => !c.validated)
+      const loadedValidated = loadedAssessments.items.filter(c => c.validated)
       const loadedProtocols = protocolsResult.status === 'fulfilled' ? protocolsResult.value : []
 
       setPendingCases(loadedPending)
       setValidatedCases(loadedValidated)
       setProtocols(loadedProtocols)
 
-      if (statsResult.status === 'fulfilled') {
-        setStats(statsResult.value)
-      } else {
-        setStats(computeStatsFromCases(loadedPending, loadedValidated))
-      }
+      setStats(loadedAssessments.counts || computeStatsFromCases(loadedPending, loadedValidated))
 
       if (
-        statsResult.status === 'fulfilled' &&
+        assessmentsResult.status === 'fulfilled' &&
         loadedValidated.length === 0 &&
-        Number(statsResult.value?.validatedAssessments || 0) > 0
+        Number(loadedAssessments.counts?.validatedAssessments || 0) > 0
       ) {
         setLoadError('Validated cases exist in stats but could not be listed. This indicates a backend endpoint mismatch.')
       }
 
-      if (pendingResult.status === 'rejected' && validatedResult.status === 'rejected') {
+      if (assessmentsResult.status === 'rejected') {
         setLoadError('Unable to load assessment data from backend right now. Please retry in a moment.')
       }
 
-      if (pendingResult.status === 'rejected') {
-        console.error('Error loading pending cases:', pendingResult.reason)
-      }
-      if (validatedResult.status === 'rejected') {
-        console.error('Error loading validated cases:', validatedResult.reason)
+      if (assessmentsResult.status === 'rejected') {
+        console.error('Error loading doctor assessments:', assessmentsResult.reason)
       }
       if (protocolsResult.status === 'rejected') {
         console.error('Error loading protocols:', protocolsResult.reason)
-      }
-      if (statsResult.status === 'rejected') {
-        console.error('Error loading doctor stats:', statsResult.reason)
       }
     } catch (error) {
       console.error('Error loading data:', error)

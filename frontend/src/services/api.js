@@ -33,7 +33,14 @@ triageApi.interceptors.response.use(
 // ---------------------------------------------------------------------------
 // Internal REST API (Auth, Patient, Doctor, Admin)
 // ---------------------------------------------------------------------------
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const normalizeApiBaseUrl = (raw) => {
+  const value = String(raw || '').trim()
+  if (!value) return 'http://localhost:5000/api'
+  const noTrailingSlash = value.replace(/\/+$/, '')
+  return noTrailingSlash.endsWith('/api') ? noTrailingSlash : `${noTrailingSlash}/api`
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || '')
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -214,6 +221,15 @@ function mergeEntities(entities) {
 const isNetworkError = (error) => error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK'
 const allowDoctorMockFallback = import.meta.env.DEV
 
+const emptyDoctorStats = {
+  totalAssessments: 0,
+  validatedAssessments: 0,
+  pendingAssessments: 0,
+  agreementCount: 0,
+  disagreementCount: 0,
+  kappaPercent: null,
+}
+
 const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
   const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
   const disagreementCount = validatedCases.length - agreementCount
@@ -226,38 +242,6 @@ const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
     kappaPercent: validatedCases.length > 0
       ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
       : null,
-  }
-}
-
-const dedupeCasesPreferValidated = (cases) => {
-  const byId = new Map()
-  cases.forEach((c) => {
-    const existing = byId.get(c.id)
-    if (!existing || (c.validated && !existing.validated)) {
-      byId.set(c.id, c)
-    }
-  })
-  return Array.from(byId.values())
-}
-
-const getLegacyPendingCases = async () => {
-  const response = await api.get('/doctor/cases')
-  return Array.isArray(response.data) ? response.data : []
-}
-
-const getLegacyValidatedCases = async () => {
-  try {
-    const response = await api.get('/doctor/validated-cases')
-    return Array.isArray(response.data)
-      ? response.data
-      : Array.isArray(response.data?.items)
-        ? response.data.items
-        : []
-  } catch (error) {
-    if (error.response?.status === 404 || error.response?.status === 405) {
-      return []
-    }
-    throw error
   }
 }
 
@@ -287,20 +271,6 @@ export const getDoctorAssessments = async () => {
     const response = await api.get('/doctor/assessments')
     return normalizeAssessmentEnvelope(response.data)
   } catch (error) {
-    const canFallbackToLegacy = error.response?.status === 404 || error.response?.status === 405
-    if (canFallbackToLegacy) {
-      const [legacyPending, legacyValidated] = await Promise.all([
-        getLegacyPendingCases(),
-        getLegacyValidatedCases(),
-      ])
-
-      const merged = dedupeCasesPreferValidated([
-        ...legacyPending,
-        ...legacyValidated,
-      ])
-
-      return normalizeAssessmentEnvelope({ items: merged })
-    }
     if (allowDoctorMockFallback && isNetworkError(error)) {
       const mock = getMockPatientCases()
       return normalizeAssessmentEnvelope({
@@ -314,50 +284,26 @@ export const getDoctorAssessments = async () => {
 }
 
 export const getPatientCases = async () => {
-  try {
-    const data = await getDoctorAssessments()
-    return data.items.filter(c => !c.validated)
-  } catch (error) {
-    if (allowDoctorMockFallback && isNetworkError(error)) {
-      return getMockPatientCases().filter(c => !c.validated)
-    }
-    throw error
-  }
+  const data = await getDoctorAssessments()
+  return data.items.filter(c => !c.validated)
 }
 
 export const getValidatedCases = async () => {
-  try {
-    const data = await getDoctorAssessments()
-    return data.items.filter(c => c.validated)
-  } catch (error) {
-    if (allowDoctorMockFallback && isNetworkError(error)) {
-      return getMockPatientCases().filter(c => c.validated)
-    }
-    throw error
-  }
+  const data = await getDoctorAssessments()
+  return data.items.filter(c => c.validated)
 }
 
 export const getDoctorStats = async () => {
   try {
     const data = await getDoctorAssessments()
-    return data.counts
+    return data.counts || emptyDoctorStats
   } catch (error) {
-    const canFallback =
-      (allowDoctorMockFallback && isNetworkError(error)) ||
-      error.response?.status === 404 ||
-      error.response?.status >= 500
-
-    if (canFallback) {
-      try {
-        const response = await api.get('/doctor/stats')
-        return response.data
-      } catch (_) {
-        const mockCases = getMockPatientCases()
-        return buildStatsFromCaseLists(
-          mockCases.filter(c => !c.validated),
-          mockCases.filter(c => c.validated)
-        )
-      }
+    if (allowDoctorMockFallback && isNetworkError(error)) {
+      const mockCases = getMockPatientCases()
+      return buildStatsFromCaseLists(
+        mockCases.filter(c => !c.validated),
+        mockCases.filter(c => c.validated)
+      )
     }
     throw error
   }
