@@ -199,7 +199,17 @@ const DoctorDashboard = () => {
 }
 
 const CaseCard = ({ caseData, onValidate }) => {
-  const [selectedTier, setSelectedTier] = useState(caseData.aiTier)
+  const aiTier =
+    caseData.aiTier ??
+    caseData.tier ??
+    (caseData.recommendation === 'Doctor Consultation' ? 1 : 0)
+
+  const [selectedTier, setSelectedTier] = useState(aiTier)
+
+  const normalizedConfidence =
+    caseData.confidence != null && Number(caseData.confidence) <= 1
+      ? Number(caseData.confidence) * 100
+      : Number(caseData.confidence || 0)
 
   const getTierLabel = (tier) => {
     switch (tier) {
@@ -233,10 +243,10 @@ const CaseCard = ({ caseData, onValidate }) => {
       <div className="case-assessment">
         <div className="ai-assessment">
           <strong>AI Triage:</strong>
-          <span className={`tier-badge ${getTierClass(caseData.aiTier)}`}>
-            {getTierLabel(caseData.aiTier)}
+          <span className={`tier-badge ${getTierClass(aiTier)}`}>
+            {getTierLabel(aiTier)}
           </span>
-          <span className="confidence">({caseData.confidence}% confidence)</span>
+          <span className="confidence">({normalizedConfidence.toFixed(2)}% confidence)</span>
         </div>
 
         {!caseData.validated ? (
