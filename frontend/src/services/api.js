@@ -229,6 +229,38 @@ const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
   }
 }
 
+const dedupeCasesPreferValidated = (cases) => {
+  const byId = new Map()
+  cases.forEach((c) => {
+    const existing = byId.get(c.id)
+    if (!existing || (c.validated && !existing.validated)) {
+      byId.set(c.id, c)
+    }
+  })
+  return Array.from(byId.values())
+}
+
+const getLegacyPendingCases = async () => {
+  const response = await api.get('/doctor/cases')
+  return Array.isArray(response.data) ? response.data : []
+}
+
+const getLegacyValidatedCases = async () => {
+  try {
+    const response = await api.get('/doctor/validated-cases')
+    return Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.data?.items)
+        ? response.data.items
+        : []
+  } catch (error) {
+    if (error.response?.status === 404 || error.response?.status === 405) {
+      return []
+    }
+    throw error
+  }
+}
+
 const normalizeAssessmentEnvelope = (data) => {
   const items = Array.isArray(data?.items)
     ? data.items
@@ -257,8 +289,17 @@ export const getDoctorAssessments = async () => {
   } catch (error) {
     const canFallbackToLegacy = error.response?.status === 404 || error.response?.status === 405
     if (canFallbackToLegacy) {
-      const legacyAll = await api.get('/doctor/cases', { params: { scope: 'all' } })
-      return normalizeAssessmentEnvelope(legacyAll.data)
+      const [legacyPending, legacyValidated] = await Promise.all([
+        getLegacyPendingCases(),
+        getLegacyValidatedCases(),
+      ])
+
+      const merged = dedupeCasesPreferValidated([
+        ...legacyPending,
+        ...legacyValidated,
+      ])
+
+      return normalizeAssessmentEnvelope({ items: merged })
     }
     if (allowDoctorMockFallback && isNetworkError(error)) {
       const mock = getMockPatientCases()
@@ -286,30 +327,9 @@ export const getPatientCases = async () => {
 
 export const getValidatedCases = async () => {
   try {
-    const response = await api.get('/doctor/assessments/validated')
-    if (Array.isArray(response.data?.items)) return response.data.items
-    if (Array.isArray(response.data)) return response.data
-    return []
+    const data = await getDoctorAssessments()
+    return data.items.filter(c => c.validated)
   } catch (error) {
-    if (error.response?.status === 404 || error.response?.status === 405) {
-      try {
-        const legacyScoped = await api.get('/doctor/cases', { params: { scope: 'validated' } })
-        if (Array.isArray(legacyScoped.data)) {
-          const looksLikePending = legacyScoped.data.some((c) => c?.validated === false || c?.status === 'pending')
-          if (!looksLikePending) return legacyScoped.data
-        }
-
-        const legacy = await api.get('/doctor/validated-cases')
-        if (Array.isArray(legacy.data)) return legacy.data
-        if (Array.isArray(legacy.data?.items)) return legacy.data.items
-        return []
-      } catch (legacyError) {
-        if (allowDoctorMockFallback && isNetworkError(legacyError)) {
-          return getMockPatientCases().filter(c => c.validated)
-        }
-        throw legacyError
-      }
-    }
     if (allowDoctorMockFallback && isNetworkError(error)) {
       return getMockPatientCases().filter(c => c.validated)
     }
