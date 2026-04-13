@@ -56,6 +56,41 @@ const DoctorDashboard = () => {
     p.description.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const validatedCases = cases.filter(c => c.validated)
+  const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+  const kappaPercent = (() => {
+    if (validatedCases.length === 0) return null
+
+    // Binary classes: 1=Doctor Consultation, 0=OTC Drug
+    let aiDoctor = 0
+    let aiOtc = 0
+    let docDoctor = 0
+    let docOtc = 0
+
+    validatedCases.forEach((c) => {
+      const aiTier =
+        c.aiTier ??
+        (c.recommendation === 'Doctor Consultation' ? 1 :
+          c.recommendation === 'OTC Drug' ? 0 :
+          c.tier ?? 0)
+      const docTier = Number(c.doctorTier)
+
+      if (aiTier === 1) aiDoctor += 1
+      else aiOtc += 1
+
+      if (docTier === 1) docDoctor += 1
+      else docOtc += 1
+    })
+
+    const n = validatedCases.length
+    const po = agreementCount / n
+    const pe = ((aiDoctor / n) * (docDoctor / n)) + ((aiOtc / n) * (docOtc / n))
+    if (pe === 1) return 100
+
+    const kappa = (po - pe) / (1 - pe)
+    return Number((kappa * 100).toFixed(1))
+  })()
+
   if (loading) {
     return (
       <div className="loading">
@@ -114,21 +149,19 @@ const DoctorDashboard = () => {
               </div>
               <div className="stat-card">
                 <div className="stat-value">
-                  {cases.filter(c => c.validated).length}
+                  {validatedCases.length}
                 </div>
                 <div className="stat-label">Validated</div>
               </div>
               <div className="stat-card">
                 <div className="stat-value">
-                  {cases.filter(c => c.validated && c.doctorAgreement).length}
+                  {agreementCount}
                 </div>
                 <div className="stat-label">Agreement</div>
               </div>
               <div className="stat-card">
                 <div className="stat-value">
-                  {cases.length > 0 
-                    ? Math.round((cases.filter(c => c.validated && c.doctorAgreement).length / cases.filter(c => c.validated).length) * 100) || 0
-                    : 0}%
+                  {kappaPercent == null ? 'N/A' : `${kappaPercent}%`}
                 </div>
                 <div className="stat-label">Cohen's Kappa</div>
               </div>
@@ -201,8 +234,9 @@ const DoctorDashboard = () => {
 const CaseCard = ({ caseData, onValidate }) => {
   const aiTier =
     caseData.aiTier ??
-    caseData.tier ??
-    (caseData.recommendation === 'Doctor Consultation' ? 1 : 0)
+    (caseData.recommendation === 'Doctor Consultation' ? 1 :
+      caseData.recommendation === 'OTC Drug' ? 0 :
+      caseData.tier ?? 0)
 
   const [selectedTier, setSelectedTier] = useState(aiTier)
 

@@ -89,18 +89,21 @@ def change_password():
 @doctor_bp.route("/cases", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_cases():
-    """Return assessments pending validation (not yet validated by this doctor)."""
+    """Return assessments with this doctor's validation state, if available."""
     with get_db() as conn:
         cur = get_cursor(conn)
         cur.execute("""
             SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
                    a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
-                   u.full_name AS patient_name
+                   u.full_name AS patient_name,
+                   v.id AS validation_id,
+                   v.is_correct,
+                   v.doctor_tier,
+                   v.created_at AS validated_at
             FROM assessments a
             JOIN users u ON u.id = a.patient_id
             LEFT JOIN validations v ON v.assessment_id = a.id AND v.doctor_id = %s
-            WHERE v.id IS NULL
-            ORDER BY a.created_at DESC
+            ORDER BY (v.id IS NULL) DESC, a.created_at DESC
         """, (g.user_id,))
         rows = cur.fetchall()
 
@@ -119,7 +122,11 @@ def get_cases():
             "tier": r["tier"],
             "confidence": r["confidence"],
             "date": str(r["created_at"]),
-            "status": "pending",
+            "validated": bool(r["validation_id"]),
+            "doctorAgreement": r["is_correct"],
+            "doctorTier": r["doctor_tier"],
+            "validatedAt": str(r["validated_at"]) if r["validated_at"] else None,
+            "status": "validated" if r["validation_id"] else "pending",
         })
     return jsonify(cases)
 

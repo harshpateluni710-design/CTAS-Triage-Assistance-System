@@ -91,11 +91,14 @@ const PatientInterface = () => {
         try {
           const token = localStorage.getItem('token')
           if (token) {
+            const recommendation = data.final_recommendation || ''
+            const tier = recommendation === 'Doctor Consultation' ? 1 : 0
             await saveAssessment({
               symptoms,
               extractedData: data.extracted_data,
               formattedText: data.formatted_clinical_text,
-              recommendation: data.final_recommendation,
+              recommendation,
+              tier,
               confidence: data.confidence,
             })
           }

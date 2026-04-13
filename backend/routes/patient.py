@@ -130,7 +130,10 @@ def save_assessment():
     extracted_data = json.dumps(data.get("extractedData", {}))
     formatted_text = data.get("formattedText", "")
     recommendation = data.get("recommendation", "")
-    tier = data.get("tier", 0)
+    tier = data.get("tier")
+    if tier is None:
+        rec = str(recommendation).strip().lower()
+        tier = 1 if rec == "doctor consultation" else 0
     confidence = data.get("confidence", 0)
 
     with get_db() as conn:
