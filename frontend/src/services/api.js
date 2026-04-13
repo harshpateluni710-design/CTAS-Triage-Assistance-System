@@ -214,10 +214,68 @@ function mergeEntities(entities) {
 const isNetworkError = (error) => error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK'
 const allowDoctorMockFallback = import.meta.env.DEV
 
+const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
+  const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+  const disagreementCount = validatedCases.length - agreementCount
+  return {
+    totalAssessments: pendingCases.length + validatedCases.length,
+    validatedAssessments: validatedCases.length,
+    pendingAssessments: pendingCases.length,
+    agreementCount,
+    disagreementCount,
+    kappaPercent: validatedCases.length > 0
+      ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
+      : null,
+  }
+}
+
+const normalizeAssessmentEnvelope = (data) => {
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data)
+      ? data
+      : []
+
+  const pendingCases = items.filter(c => !c.validated)
+  const validatedCases = items.filter(c => c.validated)
+  const fallbackCounts = buildStatsFromCaseLists(pendingCases, validatedCases)
+
+  return {
+    count: Number(data?.count ?? items.length),
+    counts: {
+      ...fallbackCounts,
+      ...(data?.counts || {}),
+    },
+    items,
+  }
+}
+
+export const getDoctorAssessments = async () => {
+  try {
+    const response = await api.get('/doctor/assessments')
+    return normalizeAssessmentEnvelope(response.data)
+  } catch (error) {
+    const canFallbackToLegacy = error.response?.status === 404 || error.response?.status === 405
+    if (canFallbackToLegacy) {
+      const legacyAll = await api.get('/doctor/cases', { params: { scope: 'all' } })
+      return normalizeAssessmentEnvelope(legacyAll.data)
+    }
+    if (allowDoctorMockFallback && isNetworkError(error)) {
+      const mock = getMockPatientCases()
+      return normalizeAssessmentEnvelope({
+        count: mock.length,
+        counts: buildStatsFromCaseLists(mock.filter(c => !c.validated), mock.filter(c => c.validated)),
+        items: mock,
+      })
+    }
+    throw error
+  }
+}
+
 export const getPatientCases = async () => {
   try {
-    const response = await api.get('/doctor/cases', { params: { scope: 'pending' } })
-    return response.data
+    const data = await getDoctorAssessments()
+    return data.items.filter(c => !c.validated)
   } catch (error) {
     if (allowDoctorMockFallback && isNetworkError(error)) {
       return getMockPatientCases().filter(c => !c.validated)
@@ -228,23 +286,23 @@ export const getPatientCases = async () => {
 
 export const getValidatedCases = async () => {
   try {
-    const response = await api.get('/doctor/cases', { params: { scope: 'validated' } })
-    const scopedCases = Array.isArray(response.data) ? response.data : []
-
-    // Compatibility: if backend ignores scope and returns pending shape,
-    // fall back to the dedicated validated-cases endpoint.
-    const looksLikePending = scopedCases.some((c) => c?.validated === false || c?.status === 'pending')
-    if (looksLikePending) {
-      const legacy = await api.get('/doctor/validated-cases')
-      return legacy.data
-    }
-
-    return scopedCases
+    const response = await api.get('/doctor/assessments/validated')
+    if (Array.isArray(response.data?.items)) return response.data.items
+    if (Array.isArray(response.data)) return response.data
+    return []
   } catch (error) {
     if (error.response?.status === 404 || error.response?.status === 405) {
       try {
+        const legacyScoped = await api.get('/doctor/cases', { params: { scope: 'validated' } })
+        if (Array.isArray(legacyScoped.data)) {
+          const looksLikePending = legacyScoped.data.some((c) => c?.validated === false || c?.status === 'pending')
+          if (!looksLikePending) return legacyScoped.data
+        }
+
         const legacy = await api.get('/doctor/validated-cases')
-        return legacy.data
+        if (Array.isArray(legacy.data)) return legacy.data
+        if (Array.isArray(legacy.data?.items)) return legacy.data.items
+        return []
       } catch (legacyError) {
         if (allowDoctorMockFallback && isNetworkError(legacyError)) {
           return getMockPatientCases().filter(c => c.validated)
@@ -261,8 +319,8 @@ export const getValidatedCases = async () => {
 
 export const getDoctorStats = async () => {
   try {
-    const response = await api.get('/doctor/stats')
-    return response.data
+    const data = await getDoctorAssessments()
+    return data.counts
   } catch (error) {
     const canFallback =
       (allowDoctorMockFallback && isNetworkError(error)) ||
@@ -271,11 +329,8 @@ export const getDoctorStats = async () => {
 
     if (canFallback) {
       try {
-        const [pendingCases, validatedCases] = await Promise.all([
-          getPatientCases(),
-          getValidatedCases(),
-        ])
-        return buildStatsFromCaseLists(pendingCases, validatedCases)
+        const response = await api.get('/doctor/stats')
+        return response.data
       } catch (_) {
         const mockCases = getMockPatientCases()
         return buildStatsFromCaseLists(
@@ -285,21 +340,6 @@ export const getDoctorStats = async () => {
       }
     }
     throw error
-  }
-}
-
-const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
-  const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
-  const disagreementCount = validatedCases.length - agreementCount
-  return {
-    totalAssessments: pendingCases.length + validatedCases.length,
-    validatedAssessments: validatedCases.length,
-    pendingAssessments: pendingCases.length,
-    agreementCount,
-    disagreementCount,
-    kappaPercent: validatedCases.length > 0
-      ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
-      : null,
   }
 }
 

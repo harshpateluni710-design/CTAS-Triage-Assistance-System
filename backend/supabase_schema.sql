@@ -47,8 +47,29 @@ CREATE TABLE IF NOT EXISTS assessments (
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
 
+-- Optional denormalized validation snapshot on assessment rows
+ALTER TABLE assessments
+    ADD COLUMN IF NOT EXISTS validation_status TEXT NOT NULL DEFAULT 'pending',
+    ADD COLUMN IF NOT EXISTS validated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS validated_at TIMESTAMPTZ;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'assessments_validation_status_check'
+    ) THEN
+        ALTER TABLE assessments
+            ADD CONSTRAINT assessments_validation_status_check
+            CHECK (validation_status IN ('pending', 'agreed', 'disagreed'));
+    END IF;
+END $$;
+
 -- Index for fetching a patient's history
 CREATE INDEX IF NOT EXISTS idx_assessments_patient ON assessments (patient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assessments_validation_status ON assessments (validation_status);
+CREATE INDEX IF NOT EXISTS idx_assessments_validated_by ON assessments (validated_by);
 
 -- ============================================================================
 -- 3. VALIDATIONS TABLE (doctor case validations)
@@ -65,6 +86,23 @@ CREATE TABLE IF NOT EXISTS validations (
 
 -- Index for finding unvalidated assessments per doctor
 CREATE INDEX IF NOT EXISTS idx_validations_doctor ON validations (doctor_id);
+
+-- Backfill denormalized assessment validation snapshot from latest validation row
+UPDATE assessments a
+SET
+    validation_status = CASE WHEN v.is_correct THEN 'agreed' ELSE 'disagreed' END,
+    validated_by = v.doctor_id,
+    validated_at = v.created_at
+FROM (
+    SELECT DISTINCT ON (assessment_id)
+        assessment_id,
+        doctor_id,
+        is_correct,
+        created_at
+    FROM validations
+    ORDER BY assessment_id, created_at DESC
+) v
+WHERE a.id = v.assessment_id;
 
 -- ============================================================================
 -- 4. PROTOCOLS TABLE (clinical knowledge base)
@@ -120,12 +158,7 @@ CREATE POLICY "Service role full access on assessments" ON assessments FOR ALL U
 CREATE POLICY "Service role full access on validations" ON validations FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Service role full access on protocols"   ON protocols   FOR ALL USING (true) WITH CHECK (true);
 
--- ============================================================================
--- 7. SEED DATA – Default Admin Account
---    Email:    admin@ctas.com
---    Password: admin123
---    Access Code (in .env): CTAS2024
--- ============================================================================
+
 INSERT INTO users (email, password, role, full_name)
 VALUES (
     'admin@ctas.com',
