@@ -10,6 +10,7 @@ Custom Docker API servers on HF Spaces:
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 import requests as http_requests
 from dotenv import load_dotenv
 load_dotenv()
@@ -197,7 +198,7 @@ def _save_entity(entities: dict, entity_type: str, tokens: list):
 # Classification Helper
 # ---------------------------------------------------------------------------
 
-def _normalize_confidence(value) -> float | None:
+def _normalize_confidence(value) -> Optional[float]:
     """Normalize confidence to 0..1, accepting 0..100 payloads too."""
     try:
         n = float(value)
