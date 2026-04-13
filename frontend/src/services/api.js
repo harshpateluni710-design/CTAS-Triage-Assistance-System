@@ -211,13 +211,28 @@ function mergeEntities(entities) {
 }
 
 // Doctor Dashboard APIs
+const isNetworkError = (error) => error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK'
+const allowDoctorMockFallback = import.meta.env.DEV
+
 export const getPatientCases = async () => {
   try {
     const response = await api.get('/doctor/cases')
     return response.data
   } catch (error) {
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      return getMockPatientCases()
+    if (allowDoctorMockFallback && isNetworkError(error)) {
+      return getMockPatientCases().filter(c => !c.validated)
+    }
+    throw error
+  }
+}
+
+export const getValidatedCases = async () => {
+  try {
+    const response = await api.get('/doctor/validated-cases')
+    return response.data
+  } catch (error) {
+    if (allowDoctorMockFallback && isNetworkError(error)) {
+      return getMockPatientCases().filter(c => c.validated)
     }
     throw error
   }
@@ -229,31 +244,38 @@ export const getDoctorStats = async () => {
     return response.data
   } catch (error) {
     const canFallback =
-      error.code === 'ECONNREFUSED' ||
-      error.code === 'ERR_NETWORK' ||
+      (allowDoctorMockFallback && isNetworkError(error)) ||
       error.response?.status === 404 ||
       error.response?.status >= 500
 
     if (canFallback) {
       try {
-        const cases = await getPatientCases()
-        return buildStatsFromCases(cases)
+        const [pendingCases, validatedCases] = await Promise.all([
+          getPatientCases(),
+          getValidatedCases(),
+        ])
+        return buildStatsFromCaseLists(pendingCases, validatedCases)
       } catch (_) {
-        return buildStatsFromCases(getMockPatientCases())
+        const mockCases = getMockPatientCases()
+        return buildStatsFromCaseLists(
+          mockCases.filter(c => !c.validated),
+          mockCases.filter(c => c.validated)
+        )
       }
     }
     throw error
   }
 }
 
-const buildStatsFromCases = (cases) => {
-  const validatedCases = cases.filter(c => c.validated)
+const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
   const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+  const disagreementCount = validatedCases.length - agreementCount
   return {
-    totalAssessments: cases.length,
+    totalAssessments: pendingCases.length + validatedCases.length,
     validatedAssessments: validatedCases.length,
-    pendingAssessments: cases.length - validatedCases.length,
+    pendingAssessments: pendingCases.length,
     agreementCount,
+    disagreementCount,
     kappaPercent: validatedCases.length > 0
       ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
       : null,
@@ -261,19 +283,12 @@ const buildStatsFromCases = (cases) => {
 }
 
 export const submitValidation = async (caseId, isCorrect, doctorTier) => {
-  try {
-    const response = await api.post('/doctor/validate', {
-      assessmentId: caseId,
-      isCorrect,
-      doctorTier,
-    })
-    return response.data
-  } catch (error) {
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      return { success: true }
-    }
-    throw error
-  }
+  const response = await api.post('/doctor/validate', {
+    assessmentId: caseId,
+    isCorrect,
+    doctorTier,
+  })
+  return response.data
 }
 
 export const getProtocols = async () => {

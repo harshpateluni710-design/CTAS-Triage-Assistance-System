@@ -89,21 +89,18 @@ def change_password():
 @doctor_bp.route("/cases", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_cases():
-    """Return assessments with this doctor's validation state, if available."""
+    """Return assessments pending validation for this doctor."""
     with get_db() as conn:
         cur = get_cursor(conn)
         cur.execute("""
             SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
                    a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
-                   u.full_name AS patient_name,
-                   v.id AS validation_id,
-                   v.is_correct,
-                   v.doctor_tier,
-                   v.created_at AS validated_at
+                   u.full_name AS patient_name
             FROM assessments a
             JOIN users u ON u.id = a.patient_id
             LEFT JOIN validations v ON v.assessment_id = a.id AND v.doctor_id = %s
-            ORDER BY (v.id IS NULL) DESC, a.created_at DESC
+            WHERE v.id IS NULL
+            ORDER BY a.created_at DESC
         """, (g.user_id,))
         rows = cur.fetchall()
 
@@ -122,12 +119,60 @@ def get_cases():
             "tier": r["tier"],
             "confidence": r["confidence"],
             "date": str(r["created_at"]),
-            "validated": bool(r["validation_id"]),
+            "validated": False,
+            "doctorAgreement": None,
+            "doctorTier": None,
+            "validatedAt": None,
+            "status": "pending",
+        })
+    return jsonify(cases)
+
+
+@doctor_bp.route("/validated-cases", methods=["GET"])
+@require_auth(allowed_roles=["doctor"])
+def get_validated_cases():
+    """Return assessments already validated by this doctor (agree + disagree)."""
+    with get_db() as conn:
+        cur = get_cursor(conn)
+        cur.execute(
+            """
+            SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
+                   a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
+                   u.full_name AS patient_name,
+                   v.is_correct,
+                   v.doctor_tier,
+                   v.created_at AS validated_at
+            FROM validations v
+            JOIN assessments a ON a.id = v.assessment_id
+            JOIN users u ON u.id = a.patient_id
+            WHERE v.doctor_id = %s
+            ORDER BY v.created_at DESC
+            """,
+            (g.user_id,),
+        )
+        rows = cur.fetchall()
+
+    cases = []
+    for r in rows:
+        extracted = r["extracted_data"] if isinstance(r["extracted_data"], dict) else {}
+        cases.append({
+            "id": r["id"],
+            "patientId": r["patient_id"],
+            "patientName": r["patient_name"],
+            "symptoms": r["symptoms"],
+            "extractedData": extracted,
+            "formattedText": r["formatted_text"],
+            "recommendation": r["recommendation"],
+            "tier": r["tier"],
+            "confidence": r["confidence"],
+            "date": str(r["created_at"]),
+            "validated": True,
             "doctorAgreement": r["is_correct"],
             "doctorTier": r["doctor_tier"],
             "validatedAt": str(r["validated_at"]) if r["validated_at"] else None,
-            "status": "validated" if r["validation_id"] else "pending",
+            "status": "validated",
         })
+
     return jsonify(cases)
 
 
@@ -153,6 +198,7 @@ def get_stats():
 
     validated_assessments = len(rows)
     agreement_count = sum(1 for r in rows if r["is_correct"])
+    disagreement_count = validated_assessments - agreement_count
     kappa_percent = None
 
     if validated_assessments > 0:
@@ -195,6 +241,7 @@ def get_stats():
         "validatedAssessments": validated_assessments,
         "pendingAssessments": max(total_assessments - validated_assessments, 0),
         "agreementCount": agreement_count,
+        "disagreementCount": disagreement_count,
         "kappaPercent": kappa_percent,
     })
 

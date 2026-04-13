@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCircle } from 'react-icons/fa'
-import { getPatientCases, submitValidation, getProtocols, getDoctorStats } from '../services/api'
+import { getPatientCases, getValidatedCases, submitValidation, getProtocols, getDoctorStats } from '../services/api'
 import './DoctorDashboard.css'
 
-const computeStatsFromCases = (caseList) => {
-  const validatedCases = caseList.filter(c => c.validated)
+const computeStatsFromCases = (pendingCases, validatedCases) => {
   const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+  const disagreementCount = validatedCases.length - agreementCount
 
   let kappaPercent = null
   if (validatedCases.length > 0) {
@@ -38,17 +38,19 @@ const computeStatsFromCases = (caseList) => {
   }
 
   return {
-    totalAssessments: caseList.length,
+    totalAssessments: pendingCases.length + validatedCases.length,
     validatedAssessments: validatedCases.length,
-    pendingAssessments: Math.max(caseList.length - validatedCases.length, 0),
+    pendingAssessments: pendingCases.length,
     agreementCount,
+    disagreementCount,
     kappaPercent,
   }
 }
 
 const DoctorDashboard = () => {
   const navigate = useNavigate()
-  const [cases, setCases] = useState([])
+  const [pendingCases, setPendingCases] = useState([])
+  const [validatedCases, setValidatedCases] = useState([])
   const [protocols, setProtocols] = useState([])
   const [activeTab, setActiveTab] = useState('validation')
   const [loading, setLoading] = useState(true)
@@ -57,6 +59,7 @@ const DoctorDashboard = () => {
     totalAssessments: 0,
     validatedAssessments: 0,
     agreementCount: 0,
+    disagreementCount: 0,
     kappaPercent: null,
   })
 
@@ -66,32 +69,42 @@ const DoctorDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('userRole')
+    localStorage.removeItem('userEmail')
+    localStorage.removeItem('userName')
     navigate('/')
   }
 
   const loadData = async () => {
     try {
       setLoading(true)
-      const [casesResult, protocolsResult, statsResult] = await Promise.allSettled([
+      const [pendingResult, validatedResult, protocolsResult, statsResult] = await Promise.allSettled([
         getPatientCases(),
+        getValidatedCases(),
         getProtocols(),
         getDoctorStats(),
       ])
 
-      const loadedCases = casesResult.status === 'fulfilled' ? casesResult.value : []
+      const loadedPending = pendingResult.status === 'fulfilled' ? pendingResult.value : []
+      const loadedValidated = validatedResult.status === 'fulfilled' ? validatedResult.value : []
       const loadedProtocols = protocolsResult.status === 'fulfilled' ? protocolsResult.value : []
 
-      setCases(loadedCases)
+      setPendingCases(loadedPending)
+      setValidatedCases(loadedValidated)
       setProtocols(loadedProtocols)
 
       if (statsResult.status === 'fulfilled') {
         setStats(statsResult.value)
       } else {
-        setStats(computeStatsFromCases(loadedCases))
+        setStats(computeStatsFromCases(loadedPending, loadedValidated))
       }
 
-      if (casesResult.status === 'rejected') {
-        console.error('Error loading cases:', casesResult.reason)
+      if (pendingResult.status === 'rejected') {
+        console.error('Error loading pending cases:', pendingResult.reason)
+      }
+      if (validatedResult.status === 'rejected') {
+        console.error('Error loading validated cases:', validatedResult.reason)
       }
       if (protocolsResult.status === 'rejected') {
         console.error('Error loading protocols:', protocolsResult.reason)
@@ -119,9 +132,6 @@ const DoctorDashboard = () => {
     p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.description.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  const pendingCases = cases.filter(c => !c.validated)
-  const verifiedCases = cases.filter(c => c.validated)
 
   if (loading) {
     return (
@@ -201,6 +211,12 @@ const DoctorDashboard = () => {
               </div>
               <div className="stat-card">
                 <div className="stat-value">
+                  {stats.disagreementCount}
+                </div>
+                <div className="stat-label">Disagreed</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">
                   {stats.kappaPercent == null ? 'N/A' : `${stats.kappaPercent}%`}
                 </div>
                 <div className="stat-label">Cohen's Kappa</div>
@@ -221,10 +237,10 @@ const DoctorDashboard = () => {
                   ))
                 )
               ) : (
-                verifiedCases.length === 0 ? (
+                validatedCases.length === 0 ? (
                   <p className="empty-state">No assessments validated by you yet.</p>
                 ) : (
-                  verifiedCases.map((caseData) => (
+                  validatedCases.map((caseData) => (
                     <CaseCard
                       key={caseData.id}
                       caseData={caseData}
