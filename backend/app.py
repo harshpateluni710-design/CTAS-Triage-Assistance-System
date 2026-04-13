@@ -308,8 +308,6 @@ def _build_entities_array(extracted: dict) -> list:
 def _mock_response(text: str) -> dict:
     """Return a plausible mock triage result so the frontend can be developed
     and demonstrated without the actual ML models present."""
-    import random
-
     text_lower = text.lower()
     urgent = ["chest pain", "breathing", "unconscious", "severe bleeding", "stroke"]
     moderate = ["fever", "pain", "headache", "vomiting", "swelling", "cough"]
@@ -323,6 +321,14 @@ def _mock_response(text: str) -> dict:
     else:
         rec = "OTC Drug"
         severity = "Low"
+
+    # Mock confidence is computed (not hardcoded) so fallback behavior is realistic.
+    urgent_hits = sum(1 for kw in urgent if kw in text_lower)
+    moderate_hits = sum(1 for kw in moderate if kw in text_lower)
+    token_count = len([t for t in re.split(r"\s+", text_lower.strip()) if t])
+    base = 0.84 if rec == "Doctor Consultation" else 0.72
+    confidence = base + (urgent_hits * 0.03) + (moderate_hits * 0.015) + min(token_count, 40) * 0.001
+    confidence = max(0.55, min(0.98, confidence))
 
     symptoms_list = [s.strip() for s in text.split(",") if s.strip()][:3] or [text[:60]]
 
@@ -343,7 +349,7 @@ def _mock_response(text: str) -> dict:
     return {
         "extracted_entities": entities_array,
         "triage_label": rec,
-        "confidence": 0.85,
+        "confidence": round(confidence, 3),
         "status": "success",
         "original_input": text,
         "extracted_data": extracted,

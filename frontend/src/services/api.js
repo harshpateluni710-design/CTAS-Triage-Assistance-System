@@ -332,6 +332,15 @@ const getMockTriageResult = (symptoms) => {
     recommendation = 'Doctor Consultation'
   }
 
+  const urgentHits = urgentKeywords.filter(keyword => symptomsLower.includes(keyword)).length
+  const moderateHits = moderateKeywords.filter(keyword => symptomsLower.includes(keyword)).length
+  const tokenCount = symptomsLower.split(/\s+/).filter(Boolean).length
+  const base = recommendation === 'Doctor Consultation' ? 0.84 : 0.72
+  const confidence = Math.max(
+    0.55,
+    Math.min(0.98, base + urgentHits * 0.03 + moderateHits * 0.015 + Math.min(tokenCount, 40) * 0.001)
+  )
+
   return {
     status: 'success',
     original_input: symptoms,
@@ -344,7 +353,7 @@ const getMockTriageResult = (symptoms) => {
     },
     formatted_clinical_text: `Patient: Not identified, 30 years. Symptoms: ${symptoms}. Duration: Not identified. Severity: Moderate.`,
     final_recommendation: recommendation,
-    confidence: 0.85,
+    confidence: Number(confidence.toFixed(3)),
   }
 }
 
