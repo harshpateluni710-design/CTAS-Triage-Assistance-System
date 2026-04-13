@@ -1,26 +1,38 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FaArrowLeft, FaCalendar, FaEye } from 'react-icons/fa'
 import { getPatientHistory } from '../services/api'
 import './PatientHistory.css'
 
 const PatientHistory = () => {
+  const navigate = useNavigate()
   const [assessments, setAssessments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
+        setError('')
         const data = await getPatientHistory()
         setAssessments(data)
       } catch (err) {
         console.error('Failed to load history:', err)
+        if ([401, 403].includes(err.response?.status)) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('userRole')
+          localStorage.removeItem('userEmail')
+          localStorage.removeItem('userName')
+          navigate('/patient-login', { replace: true })
+          return
+        }
+        setError('Unable to load your assessment history right now. Please try again.')
       } finally {
         setLoading(false)
       }
     }
     fetchHistory()
-  }, [])
+  }, [navigate])
 
   const getTierInfo = (tier) => {
     switch (tier) {
@@ -48,6 +60,8 @@ const PatientHistory = () => {
       <div className="container history-content">
         {loading ? (
           <div className="empty-state"><p>Loading...</p></div>
+        ) : error ? (
+          <div className="empty-state"><p>{error}</p></div>
         ) : assessments.length === 0 ? (
           <div className="empty-state">
             <p>No assessments found</p>
@@ -59,6 +73,11 @@ const PatientHistory = () => {
           <div className="assessments-list">
             {assessments.map((assessment) => {
               const tierInfo = getTierInfo(assessment.tier)
+              const normalizedConfidence =
+                assessment.confidence != null && Number(assessment.confidence) <= 1
+                  ? Number(assessment.confidence) * 100
+                  : Number(assessment.confidence || 0)
+
               return (
                 <div key={assessment.id} className="assessment-card">
                   <div className="assessment-header">
@@ -78,7 +97,7 @@ const PatientHistory = () => {
 
                   <div className="assessment-footer">
                     <div className="confidence-badge">
-                      Confidence: {assessment.confidence}%
+                      Confidence: {normalizedConfidence.toFixed(1)}%
                     </div>
                     <Link to={`/patient/assessment/${assessment.id}`} className="view-button">
                       <FaEye /> View Details

@@ -55,6 +55,7 @@ const DoctorDashboard = () => {
   const [activeTab, setActiveTab] = useState('validation')
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [stats, setStats] = useState({
     totalAssessments: 0,
     validatedAssessments: 0,
@@ -79,12 +80,31 @@ const DoctorDashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true)
+      setLoadError('')
       const [pendingResult, validatedResult, protocolsResult, statsResult] = await Promise.allSettled([
         getPatientCases(),
         getValidatedCases(),
         getProtocols(),
         getDoctorStats(),
       ])
+
+      const isAuthFailure = (result) =>
+        result.status === 'rejected' && [401, 403].includes(result.reason?.response?.status)
+
+      if (isAuthFailure(pendingResult) || isAuthFailure(validatedResult) || isAuthFailure(statsResult)) {
+        setLoadError('Your doctor session is invalid or expired. Please sign in again.')
+        setPendingCases([])
+        setValidatedCases([])
+        setProtocols([])
+        setStats({
+          totalAssessments: 0,
+          validatedAssessments: 0,
+          agreementCount: 0,
+          disagreementCount: 0,
+          kappaPercent: null,
+        })
+        return
+      }
 
       const loadedPending = pendingResult.status === 'fulfilled' ? pendingResult.value : []
       const loadedValidated = validatedResult.status === 'fulfilled' ? validatedResult.value : []
@@ -98,6 +118,10 @@ const DoctorDashboard = () => {
         setStats(statsResult.value)
       } else {
         setStats(computeStatsFromCases(loadedPending, loadedValidated))
+      }
+
+      if (pendingResult.status === 'rejected' && validatedResult.status === 'rejected') {
+        setLoadError('Unable to load assessment data from backend right now. Please retry in a moment.')
       }
 
       if (pendingResult.status === 'rejected') {
@@ -191,6 +215,8 @@ const DoctorDashboard = () => {
         {(activeTab === 'validation' || activeTab === 'validated') && (
           <section className="validation-section" aria-labelledby="validation-heading">
             <h2 id="validation-heading" className="sr-only">Patient Case Validation</h2>
+
+            {loadError && <p className="empty-state">{loadError}</p>}
             
             <div className="stats-cards">
               <div className="stat-card">

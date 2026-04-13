@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import PatientLogin from './pages/PatientLogin'
 import DoctorLogin from './pages/DoctorLogin'
@@ -18,6 +18,17 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminProfile from './pages/AdminProfile'
 import './App.css'
 
+function ProtectedRoute({ role, children }) {
+  const token = localStorage.getItem('token')
+  const userRole = localStorage.getItem('userRole')
+
+  if (!token || userRole !== role) {
+    return <Navigate to={`/${role}-login`} replace />
+  }
+
+  return children
+}
+
 function App() {
   return (
     <Router>
@@ -34,18 +45,18 @@ function App() {
             <Route path="/admin-register" element={<AdminRegister />} />
             
             {/* Patient Routes */}
-            <Route path="/patient" element={<PatientHome />} />
-            <Route path="/patient/assessment" element={<PatientInterface />} />
-            <Route path="/patient/assessment/:id" element={<PatientInterface />} />
-            <Route path="/patient/history" element={<PatientHistory />} />
-            <Route path="/patient/analytics" element={<PatientAnalytics />} />
-            <Route path="/patient/profile" element={<PatientProfile />} />
+            <Route path="/patient" element={<ProtectedRoute role="patient"><PatientHome /></ProtectedRoute>} />
+            <Route path="/patient/assessment" element={<ProtectedRoute role="patient"><PatientInterface /></ProtectedRoute>} />
+            <Route path="/patient/assessment/:id" element={<ProtectedRoute role="patient"><PatientInterface /></ProtectedRoute>} />
+            <Route path="/patient/history" element={<ProtectedRoute role="patient"><PatientHistory /></ProtectedRoute>} />
+            <Route path="/patient/analytics" element={<ProtectedRoute role="patient"><PatientAnalytics /></ProtectedRoute>} />
+            <Route path="/patient/profile" element={<ProtectedRoute role="patient"><PatientProfile /></ProtectedRoute>} />
             
             {/* Doctor & Admin Routes */}
-            <Route path="/doctor" element={<DoctorDashboard />} />
-            <Route path="/doctor/profile" element={<DoctorProfile />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/profile" element={<AdminProfile />} />
+            <Route path="/doctor" element={<ProtectedRoute role="doctor"><DoctorDashboard /></ProtectedRoute>} />
+            <Route path="/doctor/profile" element={<ProtectedRoute role="doctor"><DoctorProfile /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/profile" element={<ProtectedRoute role="admin"><AdminProfile /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
