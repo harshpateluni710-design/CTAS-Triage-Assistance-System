@@ -161,31 +161,41 @@ def get_analytics():
         rows = cur.fetchall()
 
     total = len(rows)
-    tier_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    tier_counts = {}
     monthly = {}
     symptom_freq = {}
 
     for r in rows:
-        t = r["tier"]
-        if t in tier_counts:
-            tier_counts[t] += 1
+        try:
+            t = int(r.get("tier") or 0)
+        except (TypeError, ValueError):
+            t = 0
+        tier_counts[t] = tier_counts.get(t, 0) + 1
 
         month = str(r["created_at"])[:7] if r["created_at"] else "unknown"
         monthly[month] = monthly.get(month, 0) + 1
 
         try:
             extracted = r["extracted_data"] if isinstance(r["extracted_data"], dict) else json.loads(r["extracted_data"])
-            for ent in extracted.get("entities", []):
-                label = ent.get("entity", "")
+
+            # Support both list-based NER payloads and flat saved symptom strings.
+            entities = extracted.get("entities") or extracted.get("extracted_entities") or []
+            for ent in entities:
+                label = (ent.get("entity") or ent.get("entity_group") or ent.get("label") or "").strip()
                 if label:
                     symptom_freq[label] = symptom_freq.get(label, 0) + 1
-        except (json.JSONDecodeError, TypeError):
+
+            raw_symptoms = extracted.get("Symptoms") or extracted.get("symptoms") or ""
+            if isinstance(raw_symptoms, str) and raw_symptoms.strip():
+                for symptom in [s.strip() for s in raw_symptoms.split(",") if s.strip()]:
+                    symptom_freq[symptom] = symptom_freq.get(symptom, 0) + 1
+        except (json.JSONDecodeError, TypeError, AttributeError):
             pass
 
     return jsonify({
         "totalAssessments": total,
         "tierDistribution": [
-            {"name": f"Tier {k}", "value": v} for k, v in tier_counts.items()
+            {"name": f"Tier {k}", "value": tier_counts[k]} for k in sorted(tier_counts.keys())
         ],
         "monthlyTrend": [
             {"month": m, "assessments": c} for m, c in monthly.items()

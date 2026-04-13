@@ -27,6 +27,9 @@ const PatientAnalytics = () => {
   const monthlyTrend = analytics?.monthlyTrend || []
   const tierDistribution = analytics?.tierDistribution || []
   const topSymptoms = analytics?.topSymptoms || []
+  const urgentTier =
+    tierDistribution.find(t => (t.name || '').toLowerCase().includes('tier 1')) ||
+    tierDistribution.find(t => (t.name || '').toLowerCase().includes('doctor'))
 
   return (
     <div className="patient-analytics-page">
@@ -133,14 +136,14 @@ const PatientAnalytics = () => {
               </div>
             )}
 
-            {tierDistribution.some(t => (t.name || '').toLowerCase().includes('2') || (t.name || '').toLowerCase().includes('immediate')) && (
+            {urgentTier && (
               <div className="insight-card">
                 <div className="insight-icon warning">
                   <FaExclamationTriangle />
                 </div>
                 <div>
                   <h3>Attention Needed</h3>
-                  <p>You have {tierDistribution.find(t => (t.name || '').toLowerCase().includes('2') || (t.name || '').toLowerCase().includes('immediate'))?.value || 0} urgent-level assessments on record. Consider regular check-ups.</p>
+                  <p>You have {urgentTier?.value || 0} doctor-consultation-level assessments on record. Consider regular check-ups.</p>
                 </div>
               </div>
             )}

@@ -233,15 +233,44 @@ const emptyDoctorStats = {
 const buildStatsFromCaseLists = (pendingCases, validatedCases) => {
   const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
   const disagreementCount = validatedCases.length - agreementCount
+
+  let kappaPercent = null
+  if (validatedCases.length > 0) {
+    let aiDoctor = 0
+    let aiOtc = 0
+    let docDoctor = 0
+    let docOtc = 0
+
+    validatedCases.forEach((c) => {
+      const aiTier =
+        c.aiTier ??
+        (c.recommendation === 'Doctor Consultation' ? 1 :
+          c.recommendation === 'OTC Drug' ? 0 :
+          Number(c.tier) || 0)
+
+      const docTier = Number(c.doctorTier || 0)
+
+      if (aiTier === 1) aiDoctor += 1
+      else aiOtc += 1
+
+      if (docTier === 1) docDoctor += 1
+      else docOtc += 1
+    })
+
+    const n = validatedCases.length
+    const po = agreementCount / n
+    const pe = ((aiDoctor / n) * (docDoctor / n)) + ((aiOtc / n) * (docOtc / n))
+    if (pe === 1) kappaPercent = 100
+    else kappaPercent = Number((((po - pe) / (1 - pe)) * 100).toFixed(1))
+  }
+
   return {
     totalAssessments: pendingCases.length + validatedCases.length,
     validatedAssessments: validatedCases.length,
     pendingAssessments: pendingCases.length,
     agreementCount,
     disagreementCount,
-    kappaPercent: validatedCases.length > 0
-      ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
-      : null,
+    kappaPercent,
   }
 }
 
