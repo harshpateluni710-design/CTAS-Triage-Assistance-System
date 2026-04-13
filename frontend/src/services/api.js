@@ -228,21 +228,35 @@ export const getDoctorStats = async () => {
     const response = await api.get('/doctor/stats')
     return response.data
   } catch (error) {
-    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      const mockCases = getMockPatientCases()
-      const validatedCases = mockCases.filter(c => c.validated)
-      const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
-      return {
-        totalAssessments: mockCases.length,
-        validatedAssessments: validatedCases.length,
-        pendingAssessments: mockCases.length - validatedCases.length,
-        agreementCount,
-        kappaPercent: validatedCases.length > 0
-          ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
-          : null,
+    const canFallback =
+      error.code === 'ECONNREFUSED' ||
+      error.code === 'ERR_NETWORK' ||
+      error.response?.status === 404 ||
+      error.response?.status >= 500
+
+    if (canFallback) {
+      try {
+        const cases = await getPatientCases()
+        return buildStatsFromCases(cases)
+      } catch (_) {
+        return buildStatsFromCases(getMockPatientCases())
       }
     }
     throw error
+  }
+}
+
+const buildStatsFromCases = (cases) => {
+  const validatedCases = cases.filter(c => c.validated)
+  const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+  return {
+    totalAssessments: cases.length,
+    validatedAssessments: validatedCases.length,
+    pendingAssessments: cases.length - validatedCases.length,
+    agreementCount,
+    kappaPercent: validatedCases.length > 0
+      ? Number(((agreementCount / validatedCases.length) * 100).toFixed(1))
+      : null,
   }
 }
 

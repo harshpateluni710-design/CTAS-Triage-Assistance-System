@@ -4,6 +4,48 @@ import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCir
 import { getPatientCases, submitValidation, getProtocols, getDoctorStats } from '../services/api'
 import './DoctorDashboard.css'
 
+const computeStatsFromCases = (caseList) => {
+  const validatedCases = caseList.filter(c => c.validated)
+  const agreementCount = validatedCases.filter(c => c.doctorAgreement).length
+
+  let kappaPercent = null
+  if (validatedCases.length > 0) {
+    let aiDoctor = 0
+    let aiOtc = 0
+    let docDoctor = 0
+    let docOtc = 0
+
+    validatedCases.forEach((c) => {
+      const aiTier =
+        c.aiTier ??
+        (c.recommendation === 'Doctor Consultation' ? 1 :
+          c.recommendation === 'OTC Drug' ? 0 :
+          c.tier ?? 0)
+      const docTier = Number(c.doctorTier)
+
+      if (aiTier === 1) aiDoctor += 1
+      else aiOtc += 1
+
+      if (docTier === 1) docDoctor += 1
+      else docOtc += 1
+    })
+
+    const n = validatedCases.length
+    const po = agreementCount / n
+    const pe = ((aiDoctor / n) * (docDoctor / n)) + ((aiOtc / n) * (docOtc / n))
+    if (pe === 1) kappaPercent = 100
+    else kappaPercent = Number((((po - pe) / (1 - pe)) * 100).toFixed(1))
+  }
+
+  return {
+    totalAssessments: caseList.length,
+    validatedAssessments: validatedCases.length,
+    pendingAssessments: Math.max(caseList.length - validatedCases.length, 0),
+    agreementCount,
+    kappaPercent,
+  }
+}
+
 const DoctorDashboard = () => {
   const navigate = useNavigate()
   const [cases, setCases] = useState([])
@@ -30,14 +72,33 @@ const DoctorDashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [casesData, protocolsData, statsData] = await Promise.all([
+      const [casesResult, protocolsResult, statsResult] = await Promise.allSettled([
         getPatientCases(),
         getProtocols(),
         getDoctorStats(),
       ])
-      setCases(casesData)
-      setProtocols(protocolsData)
-      setStats(statsData)
+
+      const loadedCases = casesResult.status === 'fulfilled' ? casesResult.value : []
+      const loadedProtocols = protocolsResult.status === 'fulfilled' ? protocolsResult.value : []
+
+      setCases(loadedCases)
+      setProtocols(loadedProtocols)
+
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value)
+      } else {
+        setStats(computeStatsFromCases(loadedCases))
+      }
+
+      if (casesResult.status === 'rejected') {
+        console.error('Error loading cases:', casesResult.reason)
+      }
+      if (protocolsResult.status === 'rejected') {
+        console.error('Error loading protocols:', protocolsResult.reason)
+      }
+      if (statsResult.status === 'rejected') {
+        console.error('Error loading doctor stats:', statsResult.reason)
+      }
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -48,14 +109,7 @@ const DoctorDashboard = () => {
   const handleValidation = async (caseId, isCorrect, doctorTier) => {
     try {
       await submitValidation(caseId, isCorrect, doctorTier)
-      // Update local state
-      setCases(cases.map(c => 
-        c.id === caseId 
-          ? { ...c, validated: true, doctorAgreement: isCorrect, doctorTier }
-          : c
-      ))
-      const statsData = await getDoctorStats()
-      setStats(statsData)
+      await loadData()
     } catch (error) {
       console.error('Error submitting validation:', error)
     }
@@ -107,6 +161,14 @@ const DoctorDashboard = () => {
             Case Validation
           </button>
           <button
+            className={`tab ${activeTab === 'validated' ? 'active' : ''}`}
+            onClick={() => setActiveTab('validated')}
+            aria-selected={activeTab === 'validated'}
+            role="tab"
+          >
+            Validated Cases
+          </button>
+          <button
             className={`tab ${activeTab === 'protocols' ? 'active' : ''}`}
             onClick={() => setActiveTab('protocols')}
             aria-selected={activeTab === 'protocols'}
@@ -116,7 +178,7 @@ const DoctorDashboard = () => {
           </button>
         </div>
 
-        {activeTab === 'validation' && (
+        {(activeTab === 'validation' || activeTab === 'validated') && (
           <section className="validation-section" aria-labelledby="validation-heading">
             <h2 id="validation-heading" className="sr-only">Patient Case Validation</h2>
             
@@ -145,45 +207,33 @@ const DoctorDashboard = () => {
               </div>
             </div>
 
-            {cases.length === 0 ? (
-              <p className="empty-state">No cases available for validation.</p>
-            ) : (
-              <>
-                <div className="cases-section">
-                  <h3 className="cases-section-title">Pending Validation ({pendingCases.length})</h3>
-                  <div className="cases-list">
-                    {pendingCases.length === 0 ? (
-                      <p className="empty-state">No pending assessments.</p>
-                    ) : (
-                      pendingCases.map((caseData) => (
-                        <CaseCard
-                          key={caseData.id}
-                          caseData={caseData}
-                          onValidate={handleValidation}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="cases-section">
-                  <h3 className="cases-section-title">Verified Assessments ({verifiedCases.length})</h3>
-                  <div className="cases-list">
-                    {verifiedCases.length === 0 ? (
-                      <p className="empty-state">No verified assessments yet.</p>
-                    ) : (
-                      verifiedCases.map((caseData) => (
-                        <CaseCard
-                          key={caseData.id}
-                          caseData={caseData}
-                          onValidate={handleValidation}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="cases-list">
+              {activeTab === 'validation' ? (
+                pendingCases.length === 0 ? (
+                  <p className="empty-state">No pending assessments available for validation.</p>
+                ) : (
+                  pendingCases.map((caseData) => (
+                    <CaseCard
+                      key={caseData.id}
+                      caseData={caseData}
+                      onValidate={handleValidation}
+                    />
+                  ))
+                )
+              ) : (
+                verifiedCases.length === 0 ? (
+                  <p className="empty-state">No assessments validated by you yet.</p>
+                ) : (
+                  verifiedCases.map((caseData) => (
+                    <CaseCard
+                      key={caseData.id}
+                      caseData={caseData}
+                      onValidate={handleValidation}
+                    />
+                  ))
+                )
+              )}
+            </div>
           </section>
         )}
 
