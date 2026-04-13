@@ -263,7 +263,7 @@ const DoctorDashboard = () => {
                 )
               ) : (
                 validatedCases.length === 0 ? (
-                  <p className="empty-state">No assessments validated by you yet.</p>
+                  <p className="empty-state">No validated assessments available yet.</p>
                 ) : (
                   validatedCases.map((caseData) => (
                     <CaseCard

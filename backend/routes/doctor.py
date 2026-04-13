@@ -86,35 +86,45 @@ def change_password():
 
 # ---------- Patient Cases ----------
 
-def _fetch_doctor_assessment_rows(doctor_id):
+def _fetch_all_assessment_rows():
+    """Fetch all assessments with latest validation (across all doctors)."""
     with get_db() as conn:
         cur = get_cursor(conn)
         cur.execute(
             """
+            WITH latest_validation AS (
+                SELECT DISTINCT ON (v.assessment_id)
+                    v.assessment_id,
+                    v.doctor_id,
+                    v.is_correct,
+                    v.doctor_tier,
+                    v.created_at
+                FROM validations v
+                ORDER BY v.assessment_id, v.created_at DESC, v.id DESC
+            )
             SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
                    a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
                    p.full_name AS patient_name,
                    p.email AS patient_email,
-                   v.id AS validation_id,
-                   v.is_correct,
-                   v.doctor_tier,
-                   v.created_at AS validated_at,
-                   v.doctor_id AS validated_by_id,
+                   lv.doctor_id AS validated_by,
+                   lv.created_at AS validated_at,
+                   lv.is_correct,
+                   lv.doctor_tier,
                    d.full_name AS validated_by_name,
                    d.email AS validated_by_email
             FROM assessments a
             JOIN users p ON p.id = a.patient_id
-            LEFT JOIN validations v ON v.assessment_id = a.id AND v.doctor_id = %s
-            LEFT JOIN users d ON d.id = v.doctor_id
+            LEFT JOIN latest_validation lv ON lv.assessment_id = a.id
+            LEFT JOIN users d ON d.id = lv.doctor_id
             ORDER BY a.created_at DESC
-            """,
-            (doctor_id,),
+            """
         )
         return cur.fetchall()
 
 
-def _serialize_case_row(row, validated=False):
+def _serialize_assessment_row(row):
     extracted = row["extracted_data"] if isinstance(row["extracted_data"], dict) else {}
+    validated = bool(row.get("validated_by"))
     validation_status = "pending"
     if validated:
         validation_status = "agreed" if row.get("is_correct") else "disagreed"
@@ -131,10 +141,10 @@ def _serialize_case_row(row, validated=False):
         "tier": row["tier"],
         "confidence": row["confidence"],
         "date": str(row["created_at"]),
-        "validated": bool(validated),
-        "doctorAgreement": None,
-        "doctorTier": None,
-        "validatedAt": None,
+        "validated": validated,
+        "doctorAgreement": row.get("is_correct") if validated else None,
+        "doctorTier": row.get("doctor_tier") if validated else None,
+        "validatedAt": str(row["validated_at"]) if row.get("validated_at") else None,
         "status": "validated" if validated else "pending",
         "validationStatus": validation_status,
         "assessmentOwner": {
@@ -142,19 +152,12 @@ def _serialize_case_row(row, validated=False):
             "fullName": row["patient_name"],
             "email": row.get("patient_email"),
         },
-        "validatedBy": None,
-    }
-
-    if validated:
-        payload["doctorAgreement"] = row.get("is_correct")
-        payload["doctorTier"] = row.get("doctor_tier")
-        payload["validatedAt"] = str(row.get("validated_at")) if row.get("validated_at") else None
-        payload["validatedBy"] = {
-            "id": row.get("validated_by_id"),
+        "validatedBy": {
+            "id": row.get("validated_by"),
             "fullName": row.get("validated_by_name"),
             "email": row.get("validated_by_email"),
-        }
-
+        } if validated else None,
+    }
     return payload
 
 
@@ -213,9 +216,9 @@ def _build_stats_from_cases(cases):
 @doctor_bp.route("/assessments", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_assessments_with_counts():
-    """Return all assessments with this doctor's validation status + counts."""
-    rows = _fetch_doctor_assessment_rows(g.user_id)
-    cases = [_serialize_case_row(r, validated=bool(r.get("validation_id"))) for r in rows]
+    """Return all assessments with global validation status + counts."""
+    rows = _fetch_all_assessment_rows()
+    cases = [_serialize_assessment_row(r) for r in rows]
     counts = _build_stats_from_cases(cases)
     return jsonify({
         "count": len(cases),
@@ -227,9 +230,9 @@ def get_assessments_with_counts():
 @doctor_bp.route("/assessments/validated", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_assessments_validated_with_status():
-    """Return only assessments validated by this doctor (agree + disagree)."""
-    rows = _fetch_doctor_assessment_rows(g.user_id)
-    cases = [_serialize_case_row(r, validated=bool(r.get("validation_id"))) for r in rows]
+    """Return only globally validated assessments (agree + disagree)."""
+    rows = _fetch_all_assessment_rows()
+    cases = [_serialize_assessment_row(r) for r in rows]
     validated_cases = [c for c in cases if c["validated"]]
     return jsonify({
         "count": len(validated_cases),
@@ -239,10 +242,10 @@ def get_assessments_validated_with_status():
 @doctor_bp.route("/cases", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_cases():
-    """Return doctor cases; supports scope=pending|validated|all."""
+    """Compatibility endpoint; supports scope=pending|validated|all."""
     scope = (request.args.get("scope") or "pending").strip().lower()
-    rows = _fetch_doctor_assessment_rows(g.user_id)
-    cases = [_serialize_case_row(r, validated=bool(r.get("validation_id"))) for r in rows]
+    rows = _fetch_all_assessment_rows()
+    cases = [_serialize_assessment_row(r) for r in rows]
 
     if scope == "validated":
         return jsonify([c for c in cases if c["validated"]])
@@ -254,18 +257,18 @@ def get_cases():
 @doctor_bp.route("/validated-cases", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_validated_cases():
-    """Return assessments already validated by this doctor (agree + disagree)."""
-    rows = _fetch_doctor_assessment_rows(g.user_id)
-    cases = [_serialize_case_row(r, validated=bool(r.get("validation_id"))) for r in rows]
+    """Compatibility endpoint; return globally validated assessments."""
+    rows = _fetch_all_assessment_rows()
+    cases = [_serialize_assessment_row(r) for r in rows]
     return jsonify([c for c in cases if c["validated"]])
 
 
 @doctor_bp.route("/stats", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_stats():
-    """Return lifetime validation stats for the logged-in doctor."""
-    rows = _fetch_doctor_assessment_rows(g.user_id)
-    cases = [_serialize_case_row(r, validated=bool(r.get("validation_id"))) for r in rows]
+    """Return global lifetime validation stats across all doctors."""
+    rows = _fetch_all_assessment_rows()
+    cases = [_serialize_assessment_row(r) for r in rows]
     return jsonify(_build_stats_from_cases(cases))
 
 
