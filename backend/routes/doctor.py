@@ -86,13 +86,87 @@ def change_password():
 
 # ---------- Patient Cases ----------
 
+def _serialize_case_row(row, validated=False):
+    extracted = row["extracted_data"] if isinstance(row["extracted_data"], dict) else {}
+    payload = {
+        "id": row["id"],
+        "patientId": row["patient_id"],
+        "patientName": row["patient_name"],
+        "symptoms": row["symptoms"],
+        "extractedData": extracted,
+        "formattedText": row["formatted_text"],
+        "recommendation": row["recommendation"],
+        "tier": row["tier"],
+        "confidence": row["confidence"],
+        "date": str(row["created_at"]),
+        "validated": bool(validated),
+        "doctorAgreement": None,
+        "doctorTier": None,
+        "validatedAt": None,
+        "status": "validated" if validated else "pending",
+    }
+
+    if validated:
+        payload["doctorAgreement"] = row.get("is_correct")
+        payload["doctorTier"] = row.get("doctor_tier")
+        payload["validatedAt"] = str(row.get("validated_at")) if row.get("validated_at") else None
+
+    return payload
+
 @doctor_bp.route("/cases", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_cases():
-    """Return assessments pending validation for this doctor."""
+    """Return doctor cases; supports scope=pending|validated|all."""
+    scope = (request.args.get("scope") or "pending").strip().lower()
+
     with get_db() as conn:
         cur = get_cursor(conn)
-        cur.execute("""
+
+        if scope == "validated":
+            cur.execute(
+                """
+                SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
+                       a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
+                       u.full_name AS patient_name,
+                       v.is_correct,
+                       v.doctor_tier,
+                       v.created_at AS validated_at
+                FROM validations v
+                JOIN assessments a ON a.id = v.assessment_id
+                JOIN users u ON u.id = a.patient_id
+                WHERE v.doctor_id = %s
+                ORDER BY v.created_at DESC
+                """,
+                (g.user_id,),
+            )
+            rows = cur.fetchall()
+            return jsonify([_serialize_case_row(r, validated=True) for r in rows])
+
+        if scope == "all":
+            cur.execute(
+                """
+                SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
+                       a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
+                       u.full_name AS patient_name,
+                       v.is_correct,
+                       v.doctor_tier,
+                       v.created_at AS validated_at,
+                       v.id AS validation_id
+                FROM assessments a
+                JOIN users u ON u.id = a.patient_id
+                LEFT JOIN validations v ON v.assessment_id = a.id AND v.doctor_id = %s
+                ORDER BY a.created_at DESC
+                """,
+                (g.user_id,),
+            )
+            rows = cur.fetchall()
+            return jsonify([
+                _serialize_case_row(r, validated=bool(r.get("validation_id")))
+                for r in rows
+            ])
+
+        cur.execute(
+            """
             SELECT a.id, a.patient_id, a.symptoms, a.extracted_data,
                    a.formatted_text, a.recommendation, a.tier, a.confidence, a.created_at,
                    u.full_name AS patient_name
@@ -101,30 +175,12 @@ def get_cases():
             LEFT JOIN validations v ON v.assessment_id = a.id AND v.doctor_id = %s
             WHERE v.id IS NULL
             ORDER BY a.created_at DESC
-        """, (g.user_id,))
+            """,
+            (g.user_id,),
+        )
         rows = cur.fetchall()
 
-    cases = []
-    for r in rows:
-        extracted = r["extracted_data"] if isinstance(r["extracted_data"], dict) else {}
-
-        cases.append({
-            "id": r["id"],
-            "patientId": r["patient_id"],
-            "patientName": r["patient_name"],
-            "symptoms": r["symptoms"],
-            "extractedData": extracted,
-            "formattedText": r["formatted_text"],
-            "recommendation": r["recommendation"],
-            "tier": r["tier"],
-            "confidence": r["confidence"],
-            "date": str(r["created_at"]),
-            "validated": False,
-            "doctorAgreement": None,
-            "doctorTier": None,
-            "validatedAt": None,
-            "status": "pending",
-        })
+    cases = [_serialize_case_row(r, validated=False) for r in rows]
     return jsonify(cases)
 
 
@@ -152,28 +208,7 @@ def get_validated_cases():
         )
         rows = cur.fetchall()
 
-    cases = []
-    for r in rows:
-        extracted = r["extracted_data"] if isinstance(r["extracted_data"], dict) else {}
-        cases.append({
-            "id": r["id"],
-            "patientId": r["patient_id"],
-            "patientName": r["patient_name"],
-            "symptoms": r["symptoms"],
-            "extractedData": extracted,
-            "formattedText": r["formatted_text"],
-            "recommendation": r["recommendation"],
-            "tier": r["tier"],
-            "confidence": r["confidence"],
-            "date": str(r["created_at"]),
-            "validated": True,
-            "doctorAgreement": r["is_correct"],
-            "doctorTier": r["doctor_tier"],
-            "validatedAt": str(r["validated_at"]) if r["validated_at"] else None,
-            "status": "validated",
-        })
-
-    return jsonify(cases)
+    return jsonify([_serialize_case_row(r, validated=True) for r in rows])
 
 
 @doctor_bp.route("/stats", methods=["GET"])

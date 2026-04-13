@@ -216,7 +216,7 @@ const allowDoctorMockFallback = import.meta.env.DEV
 
 export const getPatientCases = async () => {
   try {
-    const response = await api.get('/doctor/cases')
+    const response = await api.get('/doctor/cases', { params: { scope: 'pending' } })
     return response.data
   } catch (error) {
     if (allowDoctorMockFallback && isNetworkError(error)) {
@@ -228,9 +228,30 @@ export const getPatientCases = async () => {
 
 export const getValidatedCases = async () => {
   try {
-    const response = await api.get('/doctor/validated-cases')
-    return response.data
+    const response = await api.get('/doctor/cases', { params: { scope: 'validated' } })
+    const scopedCases = Array.isArray(response.data) ? response.data : []
+
+    // Compatibility: if backend ignores scope and returns pending shape,
+    // fall back to the dedicated validated-cases endpoint.
+    const looksLikePending = scopedCases.some((c) => c?.validated === false || c?.status === 'pending')
+    if (looksLikePending) {
+      const legacy = await api.get('/doctor/validated-cases')
+      return legacy.data
+    }
+
+    return scopedCases
   } catch (error) {
+    if (error.response?.status === 404 || error.response?.status === 405) {
+      try {
+        const legacy = await api.get('/doctor/validated-cases')
+        return legacy.data
+      } catch (legacyError) {
+        if (allowDoctorMockFallback && isNetworkError(legacyError)) {
+          return getMockPatientCases().filter(c => c.validated)
+        }
+        throw legacyError
+      }
+    }
     if (allowDoctorMockFallback && isNetworkError(error)) {
       return getMockPatientCases().filter(c => c.validated)
     }
