@@ -13,6 +13,7 @@ const PatientInterface = () => {
   const [loading, setLoading] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [error, setError] = useState(null)
+  const [historySaveWarning, setHistorySaveWarning] = useState(null)
   const [slowWarning, setSlowWarning] = useState(false)
   const slowTimerRef = useRef(null)
 
@@ -29,6 +30,7 @@ const PatientInterface = () => {
     const fetchAssessmentDetails = async () => {
       setLoadingDetail(true)
       setError(null)
+      setHistorySaveWarning(null)
 
       try {
         const history = await getPatientHistory()
@@ -102,7 +104,9 @@ const PatientInterface = () => {
               confidence: data.confidence,
             })
           }
-        } catch (_) { /* silent – history save is non-critical */ }
+        } catch (_) {
+          setHistorySaveWarning('Assessment result was generated, but saving to history failed. Please log in again and retry.')
+        }
       }
     } catch (err) {
       if (err.message === 'MODEL_LOADING') {
@@ -123,6 +127,7 @@ const PatientInterface = () => {
     setSymptoms('')
     setResult(null)
     setError(null)
+    setHistorySaveWarning(null)
   }
 
   const handleExport = () => {
@@ -236,6 +241,12 @@ const PatientInterface = () => {
         {/* --- View 2: Results Dashboard --- */}
         {result && (
           <>
+            {historySaveWarning && (
+              <div className="error-banner" role="alert">
+                <FaExclamationTriangle aria-hidden="true" />
+                <span>{historySaveWarning}</span>
+              </div>
+            )}
             <TriageResult result={result} />
             {!assessmentId && (
               <div className="result-actions">

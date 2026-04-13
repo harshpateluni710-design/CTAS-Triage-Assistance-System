@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCircle } from 'react-icons/fa'
-import { getPatientCases, getValidatedCases, submitValidation, getProtocols, getDoctorStats } from '../services/api'
+import { getPatientCases, getValidatedCases, submitValidation, getProtocols } from '../services/api'
 import './DoctorDashboard.css'
 
 const computeStatsFromCases = (pendingCases, validatedCases) => {
@@ -81,17 +81,16 @@ const DoctorDashboard = () => {
     try {
       setLoading(true)
       setLoadError('')
-      const [pendingResult, validatedResult, protocolsResult, statsResult] = await Promise.allSettled([
+      const [pendingResult, validatedResult, protocolsResult] = await Promise.allSettled([
         getPatientCases(),
         getValidatedCases(),
         getProtocols(),
-        getDoctorStats(),
       ])
 
       const isAuthFailure = (result) =>
         result.status === 'rejected' && [401, 403].includes(result.reason?.response?.status)
 
-      if (isAuthFailure(pendingResult) || isAuthFailure(validatedResult) || isAuthFailure(statsResult)) {
+      if (isAuthFailure(pendingResult) || isAuthFailure(validatedResult)) {
         setLoadError('Your doctor session is invalid or expired. Please sign in again.')
         setPendingCases([])
         setValidatedCases([])
@@ -114,11 +113,8 @@ const DoctorDashboard = () => {
       setValidatedCases(loadedValidated)
       setProtocols(loadedProtocols)
 
-      if (statsResult.status === 'fulfilled') {
-        setStats(statsResult.value)
-      } else {
-        setStats(computeStatsFromCases(loadedPending, loadedValidated))
-      }
+      // Keep stats aligned with exactly what this dashboard is showing.
+      setStats(computeStatsFromCases(loadedPending, loadedValidated))
 
       if (pendingResult.status === 'rejected' && validatedResult.status === 'rejected') {
         setLoadError('Unable to load assessment data from backend right now. Please retry in a moment.')
@@ -132,9 +128,6 @@ const DoctorDashboard = () => {
       }
       if (protocolsResult.status === 'rejected') {
         console.error('Error loading protocols:', protocolsResult.reason)
-      }
-      if (statsResult.status === 'rejected') {
-        console.error('Error loading doctor stats:', statsResult.reason)
       }
     } catch (error) {
       console.error('Error loading data:', error)
