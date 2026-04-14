@@ -5,6 +5,8 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { getSystemMetrics, getBiasAudit, uploadProtocol, deleteProtocol, getKnowledgeBase, getAdminProtocol } from '../services/api'
 import './AdminDashboard.css'
 
+const LARGE_TEXT_PARSE_THRESHOLD_BYTES = 1024 * 1024
+
 const AdminDashboard = () => {
   const navigate = useNavigate()
   const [metrics, setMetrics] = useState(null)
@@ -23,6 +25,7 @@ const AdminDashboard = () => {
   const [selectedProtocol, setSelectedProtocol] = useState(null)
   const [isProtocolLoading, setIsProtocolLoading] = useState(false)
   const [protocolError, setProtocolError] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -65,6 +68,7 @@ const AdminDashboard = () => {
       .filter(Boolean)
 
     try {
+      setIsUploading(true)
       await uploadProtocol({
         file: uploadFile,
         title: uploadForm.title,
@@ -79,6 +83,8 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error uploading protocol:', error)
       alert('Failed to upload protocol')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -117,6 +123,12 @@ const AdminDashboard = () => {
       String(protocol.type || '').toLowerCase().includes(lower)
     )
   })
+
+  const isLargeTextFileSelected = Boolean(
+    uploadFile &&
+    /\.(txt|md|csv)$/i.test(uploadFile.name || '') &&
+    Number(uploadFile.size || 0) > LARGE_TEXT_PARSE_THRESHOLD_BYTES
+  )
 
   if (loading) {
     return (
@@ -289,11 +301,23 @@ const AdminDashboard = () => {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={!uploadFile && !uploadForm.title.trim()}
+                  disabled={isUploading || (!uploadFile && !uploadForm.title.trim())}
                 >
-                  Upload Protocol
+                  {isUploading ? 'Processing...' : 'Upload Protocol'}
                 </button>
               </form>
+
+              {isUploading && (
+                <p className="upload-notice upload-notice-info" role="status">
+                  Processing file upload. Large files can take up to 3 minutes on live servers.
+                </p>
+              )}
+
+              {!isUploading && isLargeTextFileSelected && (
+                <p className="upload-notice upload-notice-warning">
+                  Large text file detected. The system parses the first 1 MB preview for faster response.
+                </p>
+              )}
             </div>
 
             <div className="search-bar">
