@@ -13,7 +13,8 @@ from routes.auth import require_auth
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
-MAX_PROTOCOL_TEXT_PARSE_BYTES = 1024 * 1024
+MAX_PROTOCOL_UPLOAD_BYTES = 1024 * 1024
+MAX_PROTOCOL_TEXT_PARSE_BYTES = MAX_PROTOCOL_UPLOAD_BYTES
 MAX_PROTOCOL_DESCRIPTION_CHARS = 5000
 
 
@@ -100,12 +101,11 @@ def _extract_pdf_text(file_bytes):
     return text, None
 
 
-def _read_limited_text_upload(uploaded_file, max_bytes=MAX_PROTOCOL_TEXT_PARSE_BYTES):
-    raw_chunk = uploaded_file.read(max_bytes + 1)
-    was_truncated = len(raw_chunk) > max_bytes
-    if was_truncated:
-        raw_chunk = raw_chunk[:max_bytes]
-    return raw_chunk.decode("utf-8", errors="ignore"), was_truncated
+def _read_upload_bytes_with_limit(uploaded_file, max_bytes=MAX_PROTOCOL_UPLOAD_BYTES):
+    raw = uploaded_file.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        return None, True
+    return raw, False
 
 
 def _serialize_protocol(row):
@@ -138,12 +138,15 @@ def _extract_protocol_payload():
         if uploaded_file and uploaded_file.filename:
             filename = Path(uploaded_file.filename).name
             suffix = Path(filename).suffix.lower()
+            file_bytes, file_too_large = _read_upload_bytes_with_limit(uploaded_file)
+
+            if file_too_large:
+                return None, f"File too large. Maximum allowed size is {MAX_PROTOCOL_UPLOAD_BYTES // (1024 * 1024)} MB."
 
             if not title:
                 title = Path(filename).stem
 
             if suffix == ".json":
-                file_bytes = uploaded_file.read()
                 try:
                     parsed = json.loads(file_bytes.decode("utf-8", errors="ignore") or "{}")
                 except json.JSONDecodeError:
@@ -158,17 +161,12 @@ def _extract_protocol_payload():
                 elif isinstance(parsed, list) and not criteria:
                     criteria = _normalize_criteria(parsed)
             elif suffix in {".txt", ".md", ".csv"}:
-                text, was_truncated = _read_limited_text_upload(uploaded_file)
+                text = file_bytes.decode("utf-8", errors="ignore")
                 if not description:
                     description = text[:MAX_PROTOCOL_DESCRIPTION_CHARS].strip()
-                    if was_truncated:
-                        description = (description + "\n\n[Truncated preview from large file]").strip()
                 if not criteria:
                     criteria = _derive_criteria_from_text(text)
-                    if was_truncated and len(criteria) < 25:
-                        criteria.append("... large file detected; only initial chunk was parsed")
             elif suffix == ".pdf":
-                file_bytes = uploaded_file.read()
                 text, pdf_error = _extract_pdf_text(file_bytes)
                 if pdf_error:
                     return None, pdf_error

@@ -5,7 +5,15 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { getSystemMetrics, getBiasAudit, uploadProtocol, deleteProtocol, getKnowledgeBase, getAdminProtocol } from '../services/api'
 import './AdminDashboard.css'
 
-const LARGE_TEXT_PARSE_THRESHOLD_BYTES = 1024 * 1024
+const MAX_PROTOCOL_UPLOAD_FILE_BYTES = 1024 * 1024
+const LARGE_FILE_NOTICE_THRESHOLD_BYTES = 700 * 1024
+
+const formatFileSize = (bytes) => {
+  const value = Number(bytes || 0)
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(2)} MB`
+  if (value >= 1024) return `${(value / 1024).toFixed(0)} KB`
+  return `${value} B`
+}
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -26,6 +34,7 @@ const AdminDashboard = () => {
   const [isProtocolLoading, setIsProtocolLoading] = useState(false)
   const [protocolError, setProtocolError] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadValidationError, setUploadValidationError] = useState('')
 
   useEffect(() => {
     loadData()
@@ -57,6 +66,15 @@ const AdminDashboard = () => {
   const handleUpload = async (e) => {
     e.preventDefault()
 
+    if (uploadValidationError) return
+
+    if (uploadFile && Number(uploadFile.size || 0) > MAX_PROTOCOL_UPLOAD_FILE_BYTES) {
+      setUploadValidationError(
+        `File too large (${formatFileSize(uploadFile.size)}). Maximum allowed size is ${formatFileSize(MAX_PROTOCOL_UPLOAD_FILE_BYTES)}.`
+      )
+      return
+    }
+
     if (!uploadFile && !uploadForm.title.trim()) {
       alert('Select a file or provide at least a title.')
       return
@@ -78,6 +96,7 @@ const AdminDashboard = () => {
       })
       setUploadFile(null)
       setUploadForm({ title: '', type: '', description: '', criteria: '' })
+      setUploadValidationError('')
       await loadData()
       alert('Protocol uploaded successfully')
     } catch (error) {
@@ -86,6 +105,27 @@ const AdminDashboard = () => {
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const handleFileChange = (event) => {
+    const selected = event.target.files?.[0] || null
+    setUploadValidationError('')
+
+    if (!selected) {
+      setUploadFile(null)
+      return
+    }
+
+    if (Number(selected.size || 0) > MAX_PROTOCOL_UPLOAD_FILE_BYTES) {
+      setUploadValidationError(
+        `File too large (${formatFileSize(selected.size)}). Maximum allowed size is ${formatFileSize(MAX_PROTOCOL_UPLOAD_FILE_BYTES)}.`
+      )
+      setUploadFile(null)
+      event.target.value = ''
+      return
+    }
+
+    setUploadFile(selected)
   }
 
   const handleOpenProtocol = async (protocolId) => {
@@ -124,11 +164,7 @@ const AdminDashboard = () => {
     )
   })
 
-  const isLargeTextFileSelected = Boolean(
-    uploadFile &&
-    /\.(txt|md|csv)$/i.test(uploadFile.name || '') &&
-    Number(uploadFile.size || 0) > LARGE_TEXT_PARSE_THRESHOLD_BYTES
-  )
+  const isLargeFileSelected = Boolean(uploadFile && Number(uploadFile.size || 0) >= LARGE_FILE_NOTICE_THRESHOLD_BYTES)
 
   if (loading) {
     return (
@@ -264,7 +300,7 @@ const AdminDashboard = () => {
                 <input
                   type="file"
                   accept=".json,.txt,.md,.csv,.pdf"
-                  onChange={(e) => setUploadFile(e.target.files[0])}
+                  onChange={handleFileChange}
                   className="file-input"
                   id="protocol-file"
                   aria-label="Select protocol file"
@@ -301,11 +337,21 @@ const AdminDashboard = () => {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={isUploading || (!uploadFile && !uploadForm.title.trim())}
+                  disabled={isUploading || Boolean(uploadValidationError) || (!uploadFile && !uploadForm.title.trim())}
                 >
                   {isUploading ? 'Processing...' : 'Upload Protocol'}
                 </button>
               </form>
+
+              <p className="upload-guidance">
+                Supported formats: JSON, TXT, MD, CSV, PDF. Maximum file size: 1 MB. Keep this page open while uploading.
+              </p>
+
+              {uploadValidationError && (
+                <p className="upload-notice upload-notice-error" role="alert">
+                  {uploadValidationError}
+                </p>
+              )}
 
               {isUploading && (
                 <p className="upload-notice upload-notice-info" role="status">
@@ -313,9 +359,9 @@ const AdminDashboard = () => {
                 </p>
               )}
 
-              {!isUploading && isLargeTextFileSelected && (
+              {!isUploading && !uploadValidationError && isLargeFileSelected && (
                 <p className="upload-notice upload-notice-warning">
-                  Large text file detected. The system parses the first 1 MB preview for faster response.
+                  Selected file size is {formatFileSize(uploadFile?.size)}. Uploads near the 1 MB limit can take longer to process.
                 </p>
               )}
             </div>
