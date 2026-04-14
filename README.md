@@ -158,6 +158,20 @@ Important:
 - Knowledge base management (CRUD protocols)
 - Bias audit with demographic analysis
 
+### Protocol Upload Limits
+- Supported upload formats: `.json`, `.txt`, `.md`, `.csv`, `.pdf`
+- Maximum protocol upload size: **1 MB**
+- UI behavior:
+   - Blocks oversized files before upload
+   - Shows file-too-large validation message with selected file size
+   - Shows processing notice while upload is running
+- Backend behavior:
+   - Enforces the same 1 MB limit even if UI is bypassed
+   - Returns a clear 400 error when file is too large
+
+Sample file for quick testing:
+- `sample_protocol_upload.csv`
+
 ## Clinical Safety Rules
 
 The backend applies post-prediction safety rules:
