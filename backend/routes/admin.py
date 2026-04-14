@@ -2,12 +2,182 @@
 Admin routes – system metrics, bias audit, knowledge base management.
 """
 
+import io
+import importlib
 import json
+import re
+from pathlib import Path
 from flask import Blueprint, request, jsonify, g
 from database import get_db, get_cursor
 from routes.auth import require_auth
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+
+def _clean_text(value):
+    return str(value or "").strip()
+
+
+def _normalize_criteria(raw_value):
+    if raw_value is None:
+        return []
+
+    if isinstance(raw_value, list):
+        return [str(item).strip() for item in raw_value if str(item).strip()]
+
+    if isinstance(raw_value, str):
+        text = raw_value.strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except json.JSONDecodeError:
+            pass
+        return [line.strip(" -*") for line in text.splitlines() if line.strip()]
+
+    return []
+
+
+def _derive_criteria_from_text(text, max_items=25):
+    line_items = []
+    for line in re.split(r"[\r\n]+", text):
+        cleaned = line.strip(" -*\t")
+        if len(cleaned) >= 4:
+            line_items.append(cleaned)
+
+    if len(line_items) < 3:
+        line_items = [
+            sentence.strip(" -*\t")
+            for sentence in re.split(r"(?<=[.!?])\s+", text)
+            if len(sentence.strip()) >= 12
+        ]
+
+    deduped = []
+    seen = set()
+    for item in line_items:
+        normalized = item.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(item)
+        if len(deduped) >= max_items:
+            break
+
+    return deduped
+
+
+def _extract_pdf_text(file_bytes):
+    try:
+        pypdf = importlib.import_module("pypdf")
+        reader_class = getattr(pypdf, "PdfReader")
+    except Exception:
+        return None, "PDF parser is not installed on the server"
+
+    try:
+        reader = reader_class(io.BytesIO(file_bytes))
+    except Exception:
+        return None, "Uploaded PDF could not be read"
+
+    chunks = []
+    for page in reader.pages:
+        try:
+            page_text = (page.extract_text() or "").strip()
+        except Exception:
+            page_text = ""
+
+        if page_text:
+            chunks.append(page_text)
+
+    text = "\n".join(chunks).strip()
+    if not text:
+        return None, "No extractable text found in PDF. If it is a scanned image PDF, OCR support is required."
+
+    return text, None
+
+
+def _serialize_protocol(row):
+    criteria = row["criteria"] if isinstance(row["criteria"], list) else []
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "type": row["type"],
+        "description": row["description"],
+        "criteria": criteria,
+        "active": bool(row["active"]),
+        "lastUpdated": str(row["updated_at"]),
+    }
+
+
+def _extract_protocol_payload():
+    title = ""
+    ptype = ""
+    description = ""
+    criteria = []
+
+    is_multipart = (request.content_type or "").lower().startswith("multipart/form-data")
+    if is_multipart:
+        title = _clean_text(request.form.get("title"))
+        ptype = _clean_text(request.form.get("type"))
+        description = _clean_text(request.form.get("description"))
+        criteria = _normalize_criteria(request.form.get("criteria"))
+
+        uploaded_file = request.files.get("file")
+        if uploaded_file and uploaded_file.filename:
+            filename = Path(uploaded_file.filename).name
+            suffix = Path(filename).suffix.lower()
+            file_bytes = uploaded_file.read()
+
+            if not title:
+                title = Path(filename).stem
+
+            if suffix == ".json":
+                try:
+                    parsed = json.loads(file_bytes.decode("utf-8", errors="ignore") or "{}")
+                except json.JSONDecodeError:
+                    return None, "Uploaded JSON file is invalid"
+
+                if isinstance(parsed, dict):
+                    title = title or _clean_text(parsed.get("title"))
+                    ptype = ptype or _clean_text(parsed.get("type"))
+                    description = description or _clean_text(parsed.get("description"))
+                    if not criteria:
+                        criteria = _normalize_criteria(parsed.get("criteria"))
+                elif isinstance(parsed, list) and not criteria:
+                    criteria = _normalize_criteria(parsed)
+            elif suffix in {".txt", ".md", ".csv"}:
+                text = file_bytes.decode("utf-8", errors="ignore")
+                if not description:
+                    description = text[:5000].strip()
+                if not criteria:
+                    criteria = _derive_criteria_from_text(text)
+            elif suffix == ".pdf":
+                text, pdf_error = _extract_pdf_text(file_bytes)
+                if pdf_error:
+                    return None, pdf_error
+                if not description:
+                    description = text[:5000].strip()
+                if not criteria:
+                    criteria = _derive_criteria_from_text(text)
+            else:
+                return None, "Unsupported file type. Use .json, .txt, .md, .csv, or .pdf"
+    else:
+        data = request.get_json(silent=True) or {}
+        title = _clean_text(data.get("title"))
+        ptype = _clean_text(data.get("type"))
+        description = _clean_text(data.get("description"))
+        criteria = _normalize_criteria(data.get("criteria"))
+
+    if not title:
+        return None, "Title is required"
+
+    return {
+        "title": title,
+        "type": ptype,
+        "description": description,
+        "criteria": criteria,
+    }, None
 
 
 # ---------- Profile ----------
@@ -171,44 +341,71 @@ def get_bias_audit():
 @admin_bp.route("/knowledge-base", methods=["GET"])
 @require_auth(allowed_roles=["admin"])
 def get_knowledge_base():
+    query = _clean_text(request.args.get("q"))
+    active_raw = _clean_text(request.args.get("active")).lower()
+    where = []
+    params = []
+
+    if query:
+        like_query = f"%{query}%"
+        where.append("(title ILIKE %s OR type ILIKE %s OR description ILIKE %s)")
+        params.extend([like_query, like_query, like_query])
+
+    if active_raw in {"true", "false"}:
+        where.append("active = %s")
+        params.append(active_raw == "true")
+
+    sql = "SELECT * FROM protocols"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY updated_at DESC"
+
     with get_db() as conn:
         cur = get_cursor(conn)
-        cur.execute("SELECT * FROM protocols ORDER BY updated_at DESC")
+        cur.execute(sql, params)
         rows = cur.fetchall()
 
-    protocols = []
-    for r in rows:
-        criteria = r["criteria"] if isinstance(r["criteria"], list) else []
-        protocols.append({
-            "id": r["id"],
-            "title": r["title"],
-            "type": r["type"],
-            "description": r["description"],
-            "criteria": criteria,
-            "active": bool(r["active"]),
-            "lastUpdated": str(r["updated_at"]),
-        })
-    return jsonify(protocols)
+    return jsonify([_serialize_protocol(r) for r in rows])
+
+
+@admin_bp.route("/protocol/<int:protocol_id>", methods=["GET"])
+@require_auth(allowed_roles=["admin"])
+def get_protocol_by_id(protocol_id):
+    with get_db() as conn:
+        cur = get_cursor(conn)
+        cur.execute("SELECT * FROM protocols WHERE id=%s", (protocol_id,))
+        row = cur.fetchone()
+
+    if not row:
+        return jsonify({"error": "Protocol not found"}), 404
+    return jsonify(_serialize_protocol(row))
 
 
 @admin_bp.route("/upload-protocol", methods=["POST"])
 @require_auth(allowed_roles=["admin"])
 def upload_protocol():
-    data = request.get_json(silent=True) or {}
-    title = (data.get("title") or "").strip()
-    ptype = (data.get("type") or "").strip()
-    description = (data.get("description") or "").strip()
-    criteria = json.dumps(data.get("criteria", []))
-
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
+    payload, error = _extract_protocol_payload()
+    if error:
+        return jsonify({"error": error}), 400
 
     with get_db() as conn:
         cur = get_cursor(conn)
         cur.execute(
             """INSERT INTO protocols (title, type, description, criteria)
-               VALUES (%s, %s, %s, %s) RETURNING id""",
-            (title, ptype, description, criteria),
+               VALUES (%s, %s, %s, %s)
+               ON CONFLICT (title)
+               DO UPDATE SET
+                   type = EXCLUDED.type,
+                   description = EXCLUDED.description,
+                   criteria = EXCLUDED.criteria,
+                   active = true
+               RETURNING id""",
+            (
+                payload["title"],
+                payload["type"],
+                payload["description"],
+                json.dumps(payload["criteria"]),
+            ),
         )
         new_id = cur.fetchone()["id"]
     return jsonify({"id": new_id, "message": "Protocol uploaded"}), 201

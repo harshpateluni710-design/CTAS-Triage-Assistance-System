@@ -347,13 +347,34 @@ export const submitValidation = async (caseId, isCorrect, doctorTier) => {
   return response.data
 }
 
-export const getProtocols = async () => {
+export const getProtocols = async (searchQuery = '') => {
+  const query = String(searchQuery || '').trim()
   try {
-    const response = await api.get('/doctor/protocols')
+    const response = await api.get('/doctor/protocols', query ? { params: { q: query } } : undefined)
     return response.data
   } catch (error) {
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      return getMockProtocols()
+      const mock = getMockProtocols()
+      if (!query) return mock
+      const lower = query.toLowerCase()
+      return mock.filter((p) =>
+        String(p.title || '').toLowerCase().includes(lower) ||
+        String(p.description || '').toLowerCase().includes(lower)
+      )
+    }
+    throw error
+  }
+}
+
+export const getDoctorProtocol = async (protocolId) => {
+  try {
+    const response = await api.get(`/doctor/protocols/${protocolId}`)
+    return response.data
+  } catch (error) {
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+      const found = getMockProtocols().find((p) => Number(p.id) === Number(protocolId))
+      if (found) return found
+      throw new Error('Protocol not found')
     }
     throw error
   }
@@ -416,21 +437,80 @@ export const getBiasAudit = async () => {
   }
 }
 
-export const getKnowledgeBase = async () => {
+export const getKnowledgeBase = async (searchQuery = '') => {
+  const query = String(searchQuery || '').trim()
   try {
-    const response = await api.get('/admin/knowledge-base')
+    const response = await api.get('/admin/knowledge-base', query ? { params: { q: query } } : undefined)
     return response.data
   } catch (error) {
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-      return getMockKnowledgeBase()
+      const mock = getMockKnowledgeBase()
+      if (!query) return mock
+      const lower = query.toLowerCase()
+      return mock.filter((p) =>
+        String(p.title || '').toLowerCase().includes(lower) ||
+        String(p.description || '').toLowerCase().includes(lower)
+      )
     }
     throw error
   }
 }
 
-export const uploadProtocol = async (protocolData) => {
+export const getAdminProtocol = async (protocolId) => {
   try {
-    const response = await api.post('/admin/upload-protocol', protocolData)
+    const response = await api.get(`/admin/protocol/${protocolId}`)
+    return response.data
+  } catch (error) {
+    if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+      const found = getMockKnowledgeBase().find((p) => Number(p.id) === Number(protocolId))
+      if (found) return found
+      throw new Error('Protocol not found')
+    }
+    throw error
+  }
+}
+
+const toProtocolUploadRequest = (protocolData) => {
+  if (protocolData instanceof File) {
+    const formData = new FormData()
+    formData.append('file', protocolData)
+    return {
+      body: formData,
+      config: { headers: { 'Content-Type': 'multipart/form-data' } },
+    }
+  }
+
+  if (protocolData?.file instanceof File) {
+    const formData = new FormData()
+    formData.append('file', protocolData.file)
+
+    const title = String(protocolData.title || '').trim()
+    const type = String(protocolData.type || '').trim()
+    const description = String(protocolData.description || '').trim()
+    const criteria = protocolData.criteria
+
+    if (title) formData.append('title', title)
+    if (type) formData.append('type', type)
+    if (description) formData.append('description', description)
+    if (Array.isArray(criteria) && criteria.length > 0) formData.append('criteria', JSON.stringify(criteria))
+    if (typeof criteria === 'string' && criteria.trim()) formData.append('criteria', criteria.trim())
+
+    return {
+      body: formData,
+      config: { headers: { 'Content-Type': 'multipart/form-data' } },
+    }
+  }
+
+  return {
+    body: protocolData,
+    config: undefined,
+  }
+}
+
+export const uploadProtocol = async (protocolData) => {
+  const requestPayload = toProtocolUploadRequest(protocolData)
+  try {
+    const response = await api.post('/admin/upload-protocol', requestPayload.body, requestPayload.config)
     return response.data
   } catch (error) {
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {

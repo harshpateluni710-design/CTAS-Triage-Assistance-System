@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCircle } from 'react-icons/fa'
-import { getDoctorAssessments, submitValidation, getProtocols } from '../services/api'
+import { FaCheckCircle, FaTimesCircle, FaBook, FaSearch, FaSignOutAlt, FaUserCircle, FaExternalLinkAlt } from 'react-icons/fa'
+import { getDoctorAssessments, submitValidation, getProtocols, getDoctorProtocol } from '../services/api'
 import './DoctorDashboard.css'
 
 const computeStatsFromCases = (pendingCases, validatedCases) => {
@@ -56,6 +56,9 @@ const DoctorDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [loadError, setLoadError] = useState('')
+  const [selectedProtocol, setSelectedProtocol] = useState(null)
+  const [isProtocolLoading, setIsProtocolLoading] = useState(false)
+  const [protocolError, setProtocolError] = useState('')
   const [stats, setStats] = useState({
     totalAssessments: 0,
     validatedAssessments: 0,
@@ -151,9 +154,23 @@ const DoctorDashboard = () => {
     }
   }
 
+  const handleOpenProtocol = async (protocolId) => {
+    try {
+      setProtocolError('')
+      setIsProtocolLoading(true)
+      const detail = await getDoctorProtocol(protocolId)
+      setSelectedProtocol(detail)
+    } catch (error) {
+      console.error('Error opening protocol:', error)
+      setProtocolError('Unable to open protocol details right now.')
+    } finally {
+      setIsProtocolLoading(false)
+    }
+  }
+
   const filteredProtocols = protocols.filter(p =>
-    p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchTerm.toLowerCase())
+    String(p.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.description || '').toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   if (loading) {
@@ -305,6 +322,14 @@ const DoctorDashboard = () => {
                     </div>
                     <p className="protocol-type">{protocol.type}</p>
                     <p className="protocol-description">{protocol.description}</p>
+                    <button
+                      className="btn btn-outline"
+                      type="button"
+                      onClick={() => handleOpenProtocol(protocol.id)}
+                    >
+                      <FaExternalLinkAlt aria-hidden="true" />
+                      Open
+                    </button>
                     {protocol.criteria && (
                       <div className="protocol-criteria">
                         <strong>Criteria:</strong>
@@ -319,6 +344,38 @@ const DoctorDashboard = () => {
                 ))
               )}
             </div>
+
+            {protocolError && <p className="empty-state">{protocolError}</p>}
+
+            {isProtocolLoading && <p className="empty-state">Loading protocol...</p>}
+
+            {selectedProtocol && (
+              <div className="protocol-modal-backdrop" role="dialog" aria-modal="true" aria-label="Protocol details">
+                <div className="protocol-modal card">
+                  <div className="protocol-modal-header">
+                    <h3>{selectedProtocol.title}</h3>
+                    <button type="button" className="btn-icon" onClick={() => setSelectedProtocol(null)} aria-label="Close protocol">
+                      <FaTimesCircle aria-hidden="true" />
+                    </button>
+                  </div>
+                  <p><strong>Type:</strong> {selectedProtocol.type || 'N/A'}</p>
+                  <p><strong>Description:</strong> {selectedProtocol.description || 'N/A'}</p>
+                  <p><strong>Updated:</strong> {new Date(selectedProtocol.lastUpdated).toLocaleString()}</p>
+                  <div className="protocol-criteria">
+                    <strong>Criteria</strong>
+                    {Array.isArray(selectedProtocol.criteria) && selectedProtocol.criteria.length > 0 ? (
+                      <ul>
+                        {selectedProtocol.criteria.map((criterion, idx) => (
+                          <li key={idx}>{criterion}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No criteria listed.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </div>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaChartLine, FaDatabase, FaExclamationTriangle, FaUpload, FaTrash, FaSignOutAlt, FaUserCircle } from 'react-icons/fa'
+import { FaChartLine, FaDatabase, FaExclamationTriangle, FaUpload, FaTrash, FaSignOutAlt, FaUserCircle, FaSearch, FaExternalLinkAlt, FaTimesCircle } from 'react-icons/fa'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { getSystemMetrics, getBiasAudit, uploadProtocol, deleteProtocol, getKnowledgeBase } from '../services/api'
+import { getSystemMetrics, getBiasAudit, uploadProtocol, deleteProtocol, getKnowledgeBase, getAdminProtocol } from '../services/api'
 import './AdminDashboard.css'
 
 const AdminDashboard = () => {
@@ -13,6 +13,16 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('health')
   const [loading, setLoading] = useState(true)
   const [uploadFile, setUploadFile] = useState(null)
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    type: '',
+    description: '',
+    criteria: '',
+  })
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedProtocol, setSelectedProtocol] = useState(null)
+  const [isProtocolLoading, setIsProtocolLoading] = useState(false)
+  const [protocolError, setProtocolError] = useState('')
 
   useEffect(() => {
     loadData()
@@ -43,16 +53,46 @@ const AdminDashboard = () => {
 
   const handleUpload = async (e) => {
     e.preventDefault()
-    if (!uploadFile) return
+
+    if (!uploadFile && !uploadForm.title.trim()) {
+      alert('Select a file or provide at least a title.')
+      return
+    }
+
+    const criteriaList = uploadForm.criteria
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean)
 
     try {
-      await uploadProtocol(uploadFile)
+      await uploadProtocol({
+        file: uploadFile,
+        title: uploadForm.title,
+        type: uploadForm.type,
+        description: uploadForm.description,
+        criteria: criteriaList,
+      })
       setUploadFile(null)
+      setUploadForm({ title: '', type: '', description: '', criteria: '' })
       await loadData()
       alert('Protocol uploaded successfully')
     } catch (error) {
       console.error('Error uploading protocol:', error)
       alert('Failed to upload protocol')
+    }
+  }
+
+  const handleOpenProtocol = async (protocolId) => {
+    try {
+      setProtocolError('')
+      setIsProtocolLoading(true)
+      const protocol = await getAdminProtocol(protocolId)
+      setSelectedProtocol(protocol)
+    } catch (error) {
+      console.error('Error opening protocol:', error)
+      setProtocolError('Unable to open protocol details right now.')
+    } finally {
+      setIsProtocolLoading(false)
     }
   }
 
@@ -68,6 +108,15 @@ const AdminDashboard = () => {
       alert('Failed to delete protocol')
     }
   }
+
+  const filteredKnowledgeBase = knowledgeBase.filter((protocol) => {
+    const lower = searchTerm.toLowerCase()
+    return (
+      String(protocol.title || '').toLowerCase().includes(lower) ||
+      String(protocol.description || '').toLowerCase().includes(lower) ||
+      String(protocol.type || '').toLowerCase().includes(lower)
+    )
+  })
 
   if (loading) {
     return (
@@ -202,7 +251,7 @@ const AdminDashboard = () => {
               <form onSubmit={handleUpload} className="upload-form">
                 <input
                   type="file"
-                  accept=".json,.txt,.pdf"
+                  accept=".json,.txt,.md,.csv,.pdf"
                   onChange={(e) => setUploadFile(e.target.files[0])}
                   className="file-input"
                   id="protocol-file"
@@ -211,19 +260,56 @@ const AdminDashboard = () => {
                 <label htmlFor="protocol-file" className="file-label">
                   {uploadFile ? uploadFile.name : 'Choose file...'}
                 </label>
+                <input
+                  type="text"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="upload-input"
+                  placeholder="Protocol title (optional if file selected)"
+                />
+                <input
+                  type="text"
+                  value={uploadForm.type}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, type: e.target.value }))}
+                  className="upload-input"
+                  placeholder="Type (e.g., ESI, Cardiac)"
+                />
+                <textarea
+                  value={uploadForm.description}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="upload-input upload-textarea"
+                  placeholder="Description"
+                />
+                <textarea
+                  value={uploadForm.criteria}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, criteria: e.target.value }))}
+                  className="upload-input upload-textarea"
+                  placeholder="Criteria (comma or new line separated)"
+                />
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={!uploadFile}
+                  disabled={!uploadFile && !uploadForm.title.trim()}
                 >
                   Upload Protocol
                 </button>
               </form>
             </div>
 
+            <div className="search-bar">
+              <FaSearch aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Search protocols by title, type, or description"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search protocol library"
+              />
+            </div>
+
             <div className="protocols-table card">
-              <h3>Current Protocols ({knowledgeBase.length})</h3>
-              {knowledgeBase.length === 0 ? (
+              <h3>Current Protocols ({filteredKnowledgeBase.length})</h3>
+              {filteredKnowledgeBase.length === 0 ? (
                 <p className="empty-state">No protocols in knowledge base.</p>
               ) : (
                 <div className="table-responsive">
@@ -239,7 +325,7 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {knowledgeBase.map((protocol) => (
+                      {filteredKnowledgeBase.map((protocol) => (
                         <tr key={protocol.id}>
                           <td>{protocol.id}</td>
                           <td>{protocol.title}</td>
@@ -253,6 +339,13 @@ const AdminDashboard = () => {
                             </span>
                           </td>
                           <td>
+                            <button
+                              className="btn-icon btn-info"
+                              onClick={() => handleOpenProtocol(protocol.id)}
+                              aria-label={`Open ${protocol.title}`}
+                            >
+                              <FaExternalLinkAlt />
+                            </button>
                             <button
                               className="btn-icon btn-danger"
                               onClick={() => handleDelete(protocol.id)}
@@ -268,6 +361,41 @@ const AdminDashboard = () => {
                 </div>
               )}
             </div>
+
+            {protocolError && <p className="empty-state">{protocolError}</p>}
+
+            {isProtocolLoading && <p className="empty-state">Loading protocol...</p>}
+
+            {selectedProtocol && (
+              <div className="protocol-modal-backdrop" role="dialog" aria-modal="true" aria-label="Protocol details">
+                <div className="protocol-modal card">
+                  <div className="protocol-modal-header">
+                    <h3>{selectedProtocol.title}</h3>
+                    <button type="button" className="btn-icon" onClick={() => setSelectedProtocol(null)} aria-label="Close protocol">
+                      <FaTimesCircle aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <p><strong>Type:</strong> {selectedProtocol.type || 'N/A'}</p>
+                  <p><strong>Description:</strong> {selectedProtocol.description || 'N/A'}</p>
+                  <p><strong>Status:</strong> {selectedProtocol.active ? 'Active' : 'Inactive'}</p>
+                  <p><strong>Updated:</strong> {new Date(selectedProtocol.lastUpdated).toLocaleString()}</p>
+
+                  <div className="protocol-criteria-list">
+                    <strong>Criteria</strong>
+                    {Array.isArray(selectedProtocol.criteria) && selectedProtocol.criteria.length > 0 ? (
+                      <ul>
+                        {selectedProtocol.criteria.map((criterion, idx) => (
+                          <li key={idx}>{criterion}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No criteria listed.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

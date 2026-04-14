@@ -116,6 +116,21 @@
   flex-wrap: wrap;
 }
 
+.upload-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  background: white;
+}
+
+.upload-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
 .file-input { display: none; }
 
 .file-label {
@@ -134,6 +149,30 @@
 .file-label:hover {
   border-color: var(--brand-accent);
   background: var(--bg-gray);
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-white);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.search-bar svg {
+  color: var(--text-light);
+  font-size: 1rem;
+}
+
+.search-bar input {
+  flex: 1;
+  border: none;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
 }
 
 /* Table */
@@ -206,6 +245,46 @@ td {
 
 .btn-icon.btn-danger { color: var(--tier-2-red); }
 .btn-icon.btn-danger:hover { background: var(--tier-2-bg); }
+.btn-icon.btn-info { color: var(--brand-accent); }
+.btn-icon.btn-info:hover { background: var(--bg-gray); }
+
+.protocol-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.protocol-modal {
+  width: min(700px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.protocol-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.protocol-modal-header h3 {
+  margin: 0;
+}
+
+.protocol-criteria-list {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.75rem;
+}
+
+.protocol-criteria-list ul {
+  padding-left: 1.2rem;
+}
 
 /* Bias Section */
 .alert-warning {
@@ -292,6 +371,7 @@ td {
 @media (max-width: 768px) {
   .metrics-grid { grid-template-columns: 1fr; }
   .upload-form { flex-direction: column; align-items: stretch; }
+  .upload-input { min-width: auto; }
   .file-label { min-width: auto; }
   table { font-size: 0.8rem; }
   th, td { padding: 0.6rem 0.4rem; }

@@ -10,6 +10,22 @@ from routes.auth import require_auth
 doctor_bp = Blueprint("doctor", __name__, url_prefix="/api/doctor")
 
 
+def _clean_text(value):
+    return str(value or "").strip()
+
+
+def _serialize_protocol(row):
+    criteria = row["criteria"] if isinstance(row["criteria"], list) else []
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "type": row["type"],
+        "description": row["description"],
+        "criteria": criteria,
+        "lastUpdated": str(row["updated_at"]),
+    }
+
+
 # ---------- Profile ----------
 
 @doctor_bp.route("/profile", methods=["GET"])
@@ -359,20 +375,33 @@ def submit_validation():
 @doctor_bp.route("/protocols", methods=["GET"])
 @require_auth(allowed_roles=["doctor"])
 def get_protocols():
+    query = _clean_text(request.args.get("q"))
+    sql = "SELECT * FROM protocols WHERE active=true"
+    params = []
+
+    if query:
+        like_query = f"%{query}%"
+        sql += " AND (title ILIKE %s OR type ILIKE %s OR description ILIKE %s)"
+        params.extend([like_query, like_query, like_query])
+
+    sql += " ORDER BY updated_at DESC"
+
     with get_db() as conn:
         cur = get_cursor(conn)
-        cur.execute("SELECT * FROM protocols WHERE active=true ORDER BY updated_at DESC")
+        cur.execute(sql, params)
         rows = cur.fetchall()
 
-    protocols = []
-    for r in rows:
-        criteria = r["criteria"] if isinstance(r["criteria"], list) else []
-        protocols.append({
-            "id": r["id"],
-            "title": r["title"],
-            "type": r["type"],
-            "description": r["description"],
-            "criteria": criteria,
-            "lastUpdated": str(r["updated_at"]),
-        })
-    return jsonify(protocols)
+    return jsonify([_serialize_protocol(r) for r in rows])
+
+
+@doctor_bp.route("/protocols/<int:protocol_id>", methods=["GET"])
+@require_auth(allowed_roles=["doctor"])
+def get_protocol_by_id(protocol_id):
+    with get_db() as conn:
+        cur = get_cursor(conn)
+        cur.execute("SELECT * FROM protocols WHERE id=%s AND active=true", (protocol_id,))
+        row = cur.fetchone()
+
+    if not row:
+        return jsonify({"error": "Protocol not found"}), 404
+    return jsonify(_serialize_protocol(row))
