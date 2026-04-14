@@ -507,10 +507,17 @@ const toProtocolUploadRequest = (protocolData) => {
   }
 }
 
+const PROTOCOL_UPLOAD_TIMEOUT_MS = 180000
+
 export const uploadProtocol = async (protocolData) => {
   const requestPayload = toProtocolUploadRequest(protocolData)
+  const uploadConfig = {
+    timeout: PROTOCOL_UPLOAD_TIMEOUT_MS,
+    ...(requestPayload.config || {}),
+  }
+
   try {
-    const response = await api.post('/admin/upload-protocol', requestPayload.body, requestPayload.config)
+    const response = await api.post('/admin/upload-protocol', requestPayload.body, uploadConfig)
     return response.data
   } catch (error) {
     if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
